@@ -1,0 +1,3 @@
+# Copie este archivo como agents.toml y escriba los nombres de sus asesores.
+# agents.toml NO se sube a git (contiene nombres de personas).
+names = ["Nombre Apellido", "Otro Asesor"]
