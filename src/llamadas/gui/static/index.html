@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="es" data-style="liquid" data-palette="oceano" data-motion="completa">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Auditoría de Llamadas</title>
+<script>
+/* Aplica la apariencia guardada antes de pintar, para que no parpadee */
+try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d = document.documentElement;
+  if (p.style) d.dataset.style = p.style; if (p.palette) d.dataset.palette = p.palette;
+  d.dataset.motion = p.motion || (matchMedia("(prefers-reduced-motion: reduce)").matches ? "suave" : "completa");
+  if (p.theme === "light" || p.theme === "dark") d.dataset.theme = p.theme; if (p.size === "grande") d.style.setProperty("--fs", "18px"); } catch (e) {}
+</script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13" width="4" height="7" rx="1.5"/><rect x="17" y="13" width="4" height="7" rx="1.5"/><path d="M19 20a4 4 0 0 1-4 3h-2"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m11 6-6 6 6 6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6"/></symbol>
+  <symbol id="i-rule" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6"/><path d="m15 17 2 2 4-4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></symbol>
+  <symbol id="i-brush" viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 11 18l-5-5z"/><path d="M6 13c-2 0-3 1.5-3 3.5S2 20 2 20s4 .5 5.5-1 1-3.5 1-3.5"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
+</svg>
+<div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="top">
+  <div class="brand"><span class="logo"><svg class="i"><use href="#i-headset"/></svg></span><img class="brand-logo" src="/static/logo-angiografia.png" alt="Angiografía de Occidente" width="110" height="44" onerror="this.remove();document.documentElement.classList.add('no-logo')"><div><h1>Auditoría de Llamadas</h1><p>Todo se procesa en este computador. Ningún audio sale de aquí.</p></div></div>
+  <nav class="tabs" id="tabs">
+    <span class="glider" id="glider"></span>
+    <button class="tab active" data-view="cargar"><b>1</b> Cargar y analizar</button>
+    <button class="tab" data-view="resultados"><b>2</b> Resultados y revisión</button>
+    <button class="tab" data-view="config"><svg class="i"><use href="#i-gear"/></svg> Configuración</button>
+  </nav>
+  <div class="top-actions">
+    <a class="btn" id="btnExport" href="/api/export" title="Descarga una hoja de Excel con el formato de la matriz de auditoría"><svg class="i"><use href="#i-download"/></svg> Exportar a Excel</a>
+  </div>
+</header>
+
+<main>
+  <!-- ============ 1. CARGAR ============ -->
+  <section id="view-cargar" class="view active">
+    <div class="card" style="--i:0">
+      <h2>1. Cargue las llamadas</h2>
+      <div id="drop" class="drop" tabindex="0" role="button" aria-label="Elegir audios">
+        <div class="drop-icon"><svg class="i"><use href="#i-upload"/></svg></div>
+        <p class="drop-title">Arrastre aquí los audios o haga clic para elegirlos</p>
+        <p class="drop-sub">Formatos: .gsm, .mp3, .wav · Puede cargar varias llamadas a la vez</p>
+        <input type="file" id="file" multiple accept=".gsm,.mp3,.wav" hidden>
+      </div>
+      <div id="pending" class="pending"></div>
+    </div>
+
+    <div class="card" id="cardAnalizar" style="--i:1">
+      <h2>2. Analice</h2>
+      <div class="modes">
+        <label class="mode"><input type="radio" name="mode" value="rapido" checked><span class="mode-ic"><svg class="i"><use href="#i-bolt"/></svg></span>
+          <span><b>Rápido</b><small>Menos de 1 min por llamada con la IA. Recomendado para empezar.</small></span></label>
+        <label class="mode"><input type="radio" name="mode" value="preciso"><span class="mode-ic"><svg class="i"><use href="#i-target"/></svg></span>
+          <span><b>Preciso</b><small>Unos 3 min por llamada con la IA. Más exacto, ideal para dejar corriendo.</small></span></label>
+        <label class="mode"><input type="radio" name="mode" value="sin"><span class="mode-ic"><svg class="i"><use href="#i-rule"/></svg></span>
+          <span><b>Solo reglas</b><small>Sin IA. Es lo más rápido; deja más criterios por revisar a mano.</small></span></label>
+      </div>
+      <p class="hint" id="modeHint"></p>
+      <div class="row">
+        <button class="btn primary big" id="btnAnalizar" disabled><svg class="i"><use href="#i-play"/></svg> Analizar llamadas</button>
+        <button class="btn ghost" id="btnLimpiar" hidden>Quitar de la lista</button>
+      </div>
+      <p class="hint"><svg class="i"><use href="#i-bulb"/></svg> Un análisis completo tarda varios minutos por llamada. Puede dejar el computador trabajando; si lo apaga, lo ya analizado queda guardado.</p>
+    </div>
+
+    <div class="card" id="cardProgreso" hidden>
+      <h2 id="progTitle">Analizando…</h2>
+      <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+      <p class="prog-line"><b id="progCount">0 de 0</b> llamadas · <span id="progEta"></span></p>
+      <p class="prog-file">Ahora: <b id="progFile">—</b></p>
+      <ol class="steps" id="steps"></ol>
+      <p class="msg" id="progMsg"></p>
+      <ul class="errs" id="progErrs"></ul>
+      <div class="row"><button class="btn danger" id="btnCancelar">Detener</button>
+        <button class="btn primary" id="btnVer" hidden>Ver resultados →</button></div>
+    </div>
+  </section>
+
+  <!-- ============ 2. RESULTADOS ============ -->
+  <section id="view-resultados" class="view">
+    <div class="cards" id="summary"></div>
+    <div class="card" style="--i:4">
+      <div class="focusbar" id="focusBar" hidden>
+        <span>Mostrando solo <b id="focusTxt"></b> del último análisis.</span>
+        <button class="btn" id="btnFocusOff" type="button">Ver todas las llamadas</button>
+      </div>
+      <div class="searchbar">
+        <label class="fld grow">Buscar<input id="search" type="search" placeholder="ID de llamada, archivo, asesor o tipo…"></label>
+        <label class="fld">Analizada desde<input type="datetime-local" id="fDesde"></label>
+        <label class="fld">Hasta<input type="datetime-local" id="fHasta"></label>
+        <label class="fld">Ordenar por<select id="sortSel">
+          <option value="analizada">Análisis más reciente</option>
+          <option value="llamada">Fecha de la llamada</option>
+          <option value="nota">Nota más baja primero</option>
+          <option value="id">ID de llamada</option>
+        </select></label>
+      </div>
+      <div class="toolbar">
+        <div class="chips" id="filters"></div>
+        <div class="chips" id="quick">
+          <button class="chipf" type="button" data-q="hora">Última hora</button>
+          <button class="chipf" type="button" data-q="hoy">Hoy</button>
+          <button class="chipf" type="button" data-q="semana">Últimos 7 días</button>
+          <button class="btn ghost" type="button" id="btnClearSearch">Limpiar búsqueda</button>
+        </div>
+      </div>
+      <p class="count-line" id="countLine"></p>
+      <div class="legend"><span class="dot ok">✓</span> Cumple <span class="dot bad">✗</span> No cumple <span class="dot pend">?</span> Falta decidir <span class="dot na">–</span> No aplica · Pase el mouse sobre cada círculo para ver el criterio.</div>
+      <div class="table-wrap"><table class="calls" id="callsTable"></table></div>
+      <p class="empty" id="empty" hidden>Aún no hay llamadas analizadas. Vaya a «Cargar y analizar».</p>
+    </div>
+  </section>
+
+  <!-- ============ 3. CONFIGURACIÓN ============ -->
+  <section id="view-config" class="view">
+    <div class="card" style="--i:0">
+      <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-brush"/></svg></span>
+        <div><h2>Diseño</h2><p>Los cambios se aplican al instante y se guardan en este equipo.</p></div></div>
+      <div class="set-item">
+        <div class="set-lbl"><b>Estilo visual</b><small>Cómo se ven los paneles, botones y el fondo.</small></div>
+        <div class="styles" id="styleGrid"></div>
+      </div>
+      <div class="set-item">
+        <div class="set-lbl"><b>Paleta de color</b><small>El color principal de botones, pestañas y fondo.</small></div>
+        <div class="swatches" id="palGrid"></div>
+        <p class="pal-note" id="palNote" hidden>El estilo Corporativo usa siempre los colores de Angiografía de Occidente: azul, amarillo y gris.</p>
+      </div>
+      <div class="set-item grid2">
+        <div><div class="set-lbl"><b>Modo</b><small>Claro, oscuro o igual que Windows.</small></div><div class="seg" id="themeSeg" style="margin-top:8px"></div></div>
+        <div><div class="set-lbl"><b>Animaciones</b><small>Si el equipo se siente lento, elija «Suaves».</small></div><div class="seg" id="motionSeg" style="margin-top:8px"></div></div>
+        <div><div class="set-lbl"><b>Tamaño del texto</b><small>«Grande» facilita la lectura en pantallas pequeñas.</small></div><div class="seg" id="sizeSeg" style="margin-top:8px"></div></div>
+      </div>
+    </div>
+    <div class="set-grid">
+      <div class="card" style="--i:1">
+        <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-spark"/></svg></span>
+          <div><h2>Análisis y revisión</h2><p>Valores por defecto para trabajar más rápido.</p></div></div>
+        <div class="set-item"><div class="set-lbl"><b>Modo de análisis por defecto</b><small>Se marca solo al abrir «Cargar y analizar».</small></div><div class="seg" id="defModeSeg"></div></div>
+        <div class="set-item"><div class="set-lbl"><b>Su nombre como auditor</b><small>Se llena solo en cada revisión nueva.</small></div><input id="prefAuditor" placeholder="Ej. Laura Gómez"></div>
+        <div class="set-item"><div class="set-lbl"><b>Después de guardar una revisión</b><small>La ventana de la llamada se cierra sola al guardar.</small></div><div class="seg" id="afterSeg"></div></div>
+      </div>
+      <div class="card" style="--i:2">
+        <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-cpu"/></svg></span>
+          <div><h2>Este equipo</h2><p>Estado de la IA local y reglas de la nota.</p></div></div>
+        <ul class="sysinfo" id="sysInfo"></ul>
+        <div class="row"><button class="btn" id="btnResetPrefs">Restablecer diseño original</button></div>
+        <p class="hint"><svg class="i"><use href="#i-shield"/></svg> La app solo funciona en este computador (127.0.0.1). Los audios y resultados viven en la carpeta <b>data</b>.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ DETALLE ============ -->
+<div id="modal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <button class="btn ghost" id="btnBack"><svg class="i"><use href="#i-back"/></svg> Volver a la lista</button>
+      <div class="mh-title"><h2 id="dTitle"></h2><p id="dSub"></p></div>
+      <div class="mh-score" id="dScore"></div>
+    </div>
+    <div class="modal-body">
+      <div class="left">
+        <div class="card slim"><audio id="player" controls preload="metadata"></audio><p class="hint" id="noAudio" hidden>El audio original no está guardado.</p></div>
+        <div class="card transcript" id="transcript"></div>
+      </div>
+      <div class="right" id="rightCol">
+        <div class="card discard" id="discardBox">
+          <div class="discard-h"><h3>¿La llamada está cortada o incompleta?</h3><p>Si no hay una conversación completa para evaluar, márquela y no se audita.</p></div>
+          <div class="seg" id="discardSeg"></div>
+          <p class="discard-note" id="discardNote" hidden></p>
+        </div>
+        <div class="card" id="e1box" hidden></div>
+        <div id="criteria"></div>
+        <div class="card">
+          <h3>Datos de la auditoría</h3>
+          <div class="grid2">
+            <label>Asesor<input id="fAgent" placeholder="Nombre del asesor"></label>
+            <label>Auditor<input id="fAuditor" placeholder="Su nombre"></label>
+          </div>
+          <label>Motivo de la llamada<input id="fMotivo" placeholder="Ej. Solicitud de cita médico general"></label>
+          <label>Observaciones y plan de acción<textarea id="fObs" rows="3" placeholder="Notas para el asesor…"></textarea></label>
+          <div class="row">
+            <button class="btn primary big" id="btnSave"><svg class="i"><use href="#i-check"/></svg> Guardar revisión</button>
+            <button class="btn danger ghost" id="btnDelete" title="Borra el audio, la transcripción y los resultados de esta llamada"><svg class="i"><use href="#i-trash"/></svg> Eliminar llamada</button>
+          </div>
+          <p class="hint" id="saveMsg">Atajo: Ctrl + S guarda y cierra.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

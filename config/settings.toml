@@ -1,0 +1,70 @@
+# Configuracion del pipeline. Todo local; ninguna API externa.
+[paths]
+data_dir = "data"                 # relativo a la raiz del proyecto
+models_dir = "models"
+
+[audio]
+sample_rate = 16000
+min_speech_s = 8.0                # menos voz que esto => estado no_speech (sin nota)
+
+[stt]
+model = "medium"                  # small | medium | large-v3 (benchmark: medium RTF ~0.5)
+compute_type = "int8"
+cpu_threads = 4
+beam_size = 1
+language = "es"
+initial_prompt = "Llamada de atencion al cliente de Angiografia de Occidente y Nueva EPS. Cedula, cita, examen, agenda."
+
+[diarization]
+segmentation_model = "sherpa-onnx-pyannote-segmentation-3-0/model.onnx"
+embedding_model = "titanet_small.onnx"
+# Se SOBRE-segmenta (>2 clusters) y el rol de cada cluster se decide por contenido (roles.py)
+num_clusters = 5                  # eval_clusters.py: k=5 mejora 2072690 y no empeora el resto (k=2 colapsa)
+min_audio_s = 10.0                # si queda menos audio humano tras quitar grabaciones, no se diariza
+
+[recorded]
+# Umbral rapidfuzz.partial_ratio (0-100) para considerar un segmento como mensaje grabado
+match_threshold = 85
+min_chars = 20
+hold_loop_min_matches = 2         # un bucle de hold exige >= N coincidencias
+hold_loop_max_gap_s = 25.0
+
+[turns]
+min_role_share = 0.08             # un rol con menos de 8% de las palabras => diarizacion sospechosa => needs_review
+merge_gap_s = 1.5                # misma persona con pausa menor => mismo turno
+
+
+[rules]
+min_call_seconds = 20             # DECIDIDO por el usuario (2026-10-06): llamadas de menos de 20 s se descartan solas como cortadas
+hold_limit_s = 60.0               # G1: espera >= a esto por evento => falla
+hold_min_gap_s = 3.0              # silencios menores no se consideran hold
+g2_gap_s = 8.0                    # G2: silencio sin anunciar que cuenta como "tiempo muerto"
+g2_max_single_gap_s = 30.0        # G2 falla si hay UN tiempo muerto mayor a esto
+g2_max_total_s = 90.0             # o si el total supera esto. SIN CALIBRAR: las 6 auditadas (todas G2=1) tienen totales de 0 a 50 s
+greeting_min_prob = 0.80          # P1: si el saludo del asesor se transcribio con confianza menor, la AUSENCIA de entidad/nombre queda pendiente
+z2_algo_mas_required = true       # DECIDIDO por el usuario (2026-10-06): preguntar "algo mas" es obligatorio
+p1_first_turns = 4                # P1: se busca en los primeros N turnos de la conversacion humana
+p2_min_mentions = 1               # P2: menciones del nombre del cliente (pendiente P-07)
+v1_reply_turns = 3                # V1: turnos tras la peticion para buscar la respuesta con digitos
+z2_window_s = 45.0                # Z2: ultimos N segundos de la conversacion humana
+z1_from_fraction = 0.35           # Z1: se buscan slots en el tramo final (desde 35% de la conversacion)
+min_role_confidence = 0.3
+
+
+[catalog]
+path = "Base_maestra_preparacion_examenes.xlsx"   # Excel del usuario: preparaciones, documentos y sedes
+
+[llm]
+# "rapido" = Qwen2.5-3B (~1 min/llamada); "preciso" = Qwen2.5-7B (~3 min/llamada, mas citas verificables)
+mode = "rapido"
+models = { rapido = "llm/qwen2.5-3b-instruct-q4_k_m.gguf", preciso = "llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf" }
+server_exe = "llm/llama.cpp/llama-server.exe"
+port = 8089
+ctx = 8192
+threads = 4
+max_tokens = 900
+quote_min_ratio = 88              # una cita del LLM solo vale si aparece (aprox.) en la transcripcion
+
+[review]
+pass_percent = 80                 # < 80 % = No aprobado (dato del usuario)
+

@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storyboard v1 · Auditoría de Llamadas con IA</title>
+<style>
+:root{
+  --bg:#071338;--glow:#0B2A8A;--pri:#001F78;--acc:#E6B32A;--gray:#585C5E;
+  --fg:#F3F5FB;--mut:#9AA6C8;--paper:#FFFFFF;--tabs:#ECEEF2;--soft:#E8ECF8;
+  --ok:#1E8E5A;--bad:#C0392B;--warn:#D68910;
+  --disp:Montserrat,"Segoe UI Black","Arial Black",sans-serif;
+  --ui:"Segoe UI","Segoe UI Variable Text",Roboto,system-ui,sans-serif;
+  --mono:"JetBrains Mono","Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9ECF4;color:#14193A;font-family:var(--ui)}
+header.sheet{padding:36px 48px 18px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+header.sheet h1{font-family:var(--disp);font-weight:900;font-size:34px;margin:0;color:var(--pri)}
+header.sheet h1 small{font-family:var(--mono);font-size:14px;color:#fff;background:var(--pri);padding:3px 9px;border-radius:6px;margin-left:10px;vertical-align:middle;box-shadow:inset 0 -3px 0 var(--acc)}
+header.sheet p{margin:6px 0 0;color:#4A5275;max-width:820px}
+.tag{font-family:var(--mono);font-size:13px;background:#fff;border:2px solid var(--pri);color:var(--pri);padding:6px 12px;border-radius:999px}
+.act{margin:22px 48px 10px;font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--pri);padding:7px 14px;border-radius:8px;box-shadow:inset -6px 0 0 var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;padding:6px 48px 10px}
+@media (max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:700px){.grid{grid-template-columns:1fr;padding:6px 16px}.act{margin:22px 16px 10px}header.sheet{padding:24px 16px 12px}}
+.cell{background:#fff;border-radius:14px;padding:10px 10px 14px;box-shadow:0 2px 10px rgb(7 19 56 / .08)}
+.cv{aspect-ratio:16/9;container-type:inline-size;position:relative;overflow:hidden;border-radius:9px;background:radial-gradient(60% 70% at 70% 30%,rgb(11 42 138 / .55),transparent 70%),radial-gradient(40% 50% at 15% 90%,rgb(230 179 42 / .14),transparent 70%),var(--bg);color:var(--fg)}
+.lab{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:12.5px;margin:10px 4px 4px;color:#14193A}
+.lab b{color:var(--pri)}
+.note{margin:4px 4px 8px;font-size:13.5px;line-height:1.45;color:#2C3358}
+.chip{display:inline-block;font-family:var(--mono);font-size:11.5px;background:var(--soft);color:var(--pri);border-radius:999px;padding:3px 10px;margin-left:4px}
+/* ----- piezas de dibujo (todo en cqw) ----- */
+.ghost{position:absolute;font-family:var(--disp);font-weight:900;color:rgb(255 255 255 / .05);font-size:22cqw;line-height:.8;white-space:nowrap}
+.meta{position:absolute;font-family:var(--mono);font-size:1.25cqw;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
+.rule{position:absolute;height:.25cqw;background:var(--acc)}
+.win{position:absolute;background:var(--paper);color:#14193A;border-radius:1.15cqw;box-shadow:0 2.4cqw 5cqw rgb(0 8 40 / .55);overflow:hidden;font-family:var(--ui)}
+.win .top{display:flex;align-items:center;gap:1.2cqw;padding:1.1cqw 1.6cqw;border-bottom:.22cqw solid var(--acc)}
+.win .logo{width:2.6cqw;height:2.6cqw;border-radius:.6cqw;background:var(--pri);box-shadow:inset 0 -.3cqw 0 var(--acc)}
+.win .ttl b{display:block;font-size:1.55cqw;color:var(--pri);font-weight:700;line-height:1.1}
+.win .ttl small{font-size:.95cqw;color:#5B6380}
+.win .tabs{display:flex;gap:.5cqw;background:var(--tabs);padding:.55cqw 1.1cqw}
+.win .tab{font-size:1.05cqw;padding:.45cqw 1cqw;border-radius:.6cqw;color:#4A5275;font-weight:600}
+.win .tab.on{background:var(--pri);color:#fff;box-shadow:inset 0 -.25cqw 0 var(--acc)}
+.win .body{padding:1.3cqw 1.6cqw}
+.h2{font-size:1.45cqw;font-weight:700;color:var(--pri);margin:0 0 .8cqw}
+.btn{display:inline-flex;align-items:center;gap:.5cqw;font-size:1.15cqw;font-weight:700;border-radius:.6cqw;padding:.7cqw 1.3cqw;border:.15cqw solid #C9CEDD;color:#14193A;background:#fff}
+.btn.pri{background:var(--pri);color:#fff;border-color:transparent;box-shadow:inset 0 -.3cqw 0 var(--acc)}
+.btn.ok{background:var(--ok);color:#fff;border-color:transparent}
+.drop{border:.2cqw dashed rgb(0 31 120 / .45);border-radius:1cqw;background:var(--soft);padding:1.4cqw;display:flex;gap:1cqw;align-items:center;justify-content:center;min-height:9cqw}
+.file{font-family:var(--mono);font-size:1.05cqw;background:#fff;border:.15cqw solid #C9CEDD;border-radius:.6cqw;padding:.6cqw .9cqw;box-shadow:0 .4cqw 1cqw rgb(0 8 40 / .15)}
+.seg{display:inline-flex;background:var(--tabs);border-radius:.7cqw;padding:.3cqw;gap:.3cqw}
+.seg span{font-size:1.05cqw;padding:.5cqw 1cqw;border-radius:.5cqw;color:#4A5275;font-weight:600}
+.seg span.on{background:var(--pri);color:#fff}
+.cursor{position:absolute;width:0;height:0;border-left:1.1cqw solid transparent;border-right:1.1cqw solid transparent;border-bottom:2.2cqw solid #fff;transform:rotate(-30deg);filter:drop-shadow(0 .2cqw .3cqw rgb(0 0 0 / .6))}
+.ring{position:absolute;border:.25cqw solid var(--acc);border-radius:50%}
+.bar{height:1.5cqw;border-radius:1cqw;background:var(--tabs);overflow:hidden}
+.bar i{display:block;height:100%;background:repeating-linear-gradient(135deg,rgb(255 255 255 / .25) 0 .7cqw,transparent .7cqw 1.4cqw),linear-gradient(90deg,var(--pri),var(--acc))}
+.steps{list-style:none;margin:1cqw 0 0;padding:0;display:grid;gap:.55cqw}
+.steps li{font-size:1.15cqw;display:flex;gap:.8cqw;align-items:center}
+.dot{width:1.7cqw;height:1.7cqw;border-radius:50%;display:inline-grid;place-items:center;font-size:1cqw;color:#fff;font-weight:700;flex:none}
+.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}.dot.run{border:.25cqw solid var(--pri);border-top-color:var(--acc)}
+.bub{max-width:62%;font-size:1.1cqw;line-height:1.35;padding:.7cqw 1cqw;border-radius:1cqw;margin:.45cqw 0}
+.bub.a{background:var(--pri);color:#fff;border-bottom-left-radius:.2cqw}
+.bub.c{background:var(--tabs);margin-left:auto;border-bottom-right-radius:.2cqw}
+.band{font-family:var(--mono);font-size:.95cqw;letter-spacing:.05em;text-transform:uppercase;padding:.45cqw .9cqw;border-radius:.5cqw;margin:.45cqw 0}
+.band.ivr{background:#E5E8F2;color:#4A5275;border-left:.35cqw solid var(--gray)}
+.band.hold{background:#FDF3DC;color:#8A5A00;border-left:.35cqw solid var(--warn)}
+.wave{display:flex;align-items:center;gap:.22cqw;height:3.2cqw}
+.wave i{display:block;width:.35cqw;background:#9AA6C8;border-radius:.2cqw}
+.wave i.p{background:var(--pri)}
+.ev{display:inline-block;font-family:var(--mono);font-size:.95cqw;background:#FFF6DD;border:.15cqw solid var(--acc);color:#6B4E00;border-radius:999px;padding:.3cqw .8cqw}
+.card{border:.15cqw solid #DDE1EC;border-radius:.9cqw;padding:.9cqw 1cqw;background:#fff;display:flex;gap:.8cqw;align-items:flex-start}
+.card .code{font-family:var(--mono);font-size:1cqw;background:#14193A;color:#fff;border-radius:.4cqw;padding:.15cqw .5cqw}
+.card b{display:block;font-size:1.1cqw}
+.card small{font-size:.9cqw;color:#5B6380}
+.toast{position:absolute;background:#14193A;color:#fff;font-size:1.15cqw;border-radius:.8cqw;padding:.8cqw 1.2cqw;box-shadow:0 1cqw 2cqw rgb(0 0 0 / .4);border-left:.4cqw solid var(--ok)}
+table.t{width:100%;border-collapse:collapse;font-size:1.02cqw}
+table.t th{text-align:left;color:#5B6380;font-weight:600;border-bottom:.2cqw solid var(--acc);padding:.45cqw .5cqw}
+table.t td{padding:.5cqw .5cqw;border-bottom:.1cqw solid #E3E6EE}
+table.t tr.hi td{background:#FFF6DD}
+.pill{font-size:.9cqw;border-radius:999px;padding:.15cqw .7cqw;font-weight:700}
+.pill.cut{background:#FBE3E0;color:#9A2A1E}
+.pill.auto{background:var(--soft);color:var(--pri)}
+.chat{position:absolute;background:#fff;color:#14193A;border-radius:1.15cqw;box-shadow:0 2.4cqw 5cqw rgb(0 8 40 / .6);overflow:hidden;display:flex;flex-direction:column}
+.chat .hd{background:var(--pri);color:#fff;padding:1cqw 1.4cqw;font-weight:700;font-size:1.35cqw;display:flex;gap:.8cqw;align-items:center;box-shadow:inset 0 -.3cqw 0 var(--acc)}
+.chat .bd{padding:1.2cqw 1.4cqw;display:flex;flex-direction:column;gap:.8cqw;flex:1}
+.q{align-self:flex-end;background:var(--soft);color:var(--pri);font-weight:600;font-size:1.2cqw;border-radius:1cqw 1cqw .2cqw 1cqw;padding:.8cqw 1.1cqw;max-width:85%}
+.ans{border:.2cqw solid #DDE1EC;border-radius:1cqw;padding:1cqw 1.2cqw;font-size:1.1cqw;line-height:1.4}
+.ans .big{font-family:var(--disp);font-weight:900;font-size:2.1cqw;color:var(--pri);display:block;line-height:1.1}
+.ans ul{margin:.5cqw 0 0;padding-left:1.4cqw}
+.inp{border:.2cqw solid #C9CEDD;border-radius:.8cqw;padding:.8cqw 1cqw;font-size:1.05cqw;color:#8A90A8;margin:0 1.4cqw 1.2cqw}
+.xl{position:absolute;background:#fff;border-radius:.9cqw;overflow:hidden;box-shadow:0 2cqw 4cqw rgb(0 8 40 / .55);color:#14193A}
+.xl .bar1{background:#1D6F42;color:#fff;font-weight:700;font-size:1.15cqw;padding:.7cqw 1cqw}
+.xl table{border-collapse:collapse;font-family:var(--mono);font-size:1.25cqw;width:100%}
+.xl td,.xl th{border:.1cqw solid #D6DAE3;padding:.55cqw .6cqw;text-align:center}
+.xl th{background:#E8F2EC}
+.xl .tabsx{display:flex;gap:.4cqw;padding:.5cqw .8cqw;background:#F1F2F5;font-size:.9cqw}
+.xl .tabsx span{padding:.2cqw .7cqw;border-radius:.3cqw;background:#fff;border:.1cqw solid #D6DAE3}
+.toggle{width:5cqw;height:2.6cqw;border-radius:2cqw;background:var(--acc);position:relative;flex:none}
+.toggle::after{content:"";position:absolute;right:.3cqw;top:.3cqw;width:2cqw;height:2cqw;border-radius:50%;background:#fff}
+.mail{position:absolute;background:#fff;color:#14193A;border-radius:1cqw;box-shadow:0 2cqw 4cqw rgb(0 8 40 / .55);overflow:hidden}
+.kbig{font-family:var(--disp);font-weight:900;line-height:.9}
+.hbar{display:grid;grid-template-columns:24cqw 1fr 3cqw;gap:1cqw;align-items:center;font-size:1.2cqw;margin:.8cqw 0}
+.hbar i{display:block;height:1.8cqw;border-radius:.4cqw;background:linear-gradient(90deg,var(--pri),#2F4FC0)}
+.hbar i.top{background:linear-gradient(90deg,#B98A10,var(--acc))}
+.hbar b{font-family:var(--mono);color:var(--acc);font-size:1.4cqw}
+.seam{display:flex;height:100%;align-items:stretch;gap:.4cqw;padding:2cqw}
+.seam div{flex:1;background:rgb(255 255 255 / .06);border-radius:.6cqw;display:flex;flex-direction:column;justify-content:space-between;padding:.6cqw;font-family:var(--mono);font-size:1cqw;color:var(--fg)}
+.seam div b{color:var(--acc);font-size:1.3cqw}
+.seam div span{color:var(--mut);font-size:.95cqw;writing-mode:vertical-rl;transform:rotate(180deg);align-self:center}
+.sw{display:inline-block;width:4.2cqw;height:4.2cqw;border-radius:.6cqw;margin-right:.6cqw;vertical-align:middle;border:.15cqw solid rgb(255 255 255 / .25)}
+</style>
+</head>
+<body>
+<header class="sheet">
+  <div>
+    <h1>Auditoría de Llamadas con IA <small>v1</small></h1>
+    <p>Video comercial de la app web local de auditoría de llamadas. Una sola ventana de la app atraviesa todo el video; la cámara la recorre de la carga al panel de inconformidades.</p>
+  </div>
+  <span class="tag">1920×1080 · 90 s · 14 escenas · música, sin voz</span>
+</header>
+
+<div class="act">Acto 1 · El problema y la respuesta (0–11 s)</div>
+<div class="grid">
+
+<section class="cell" id="frame-01">
+  <div class="cv">
+    <div class="ghost" style="left:-2cqw;top:5cqw">1.500</div>
+    <div class="meta" style="left:6cqw;top:6cqw">operación diaria · call center</div>
+    <div style="position:absolute;left:6cqw;top:12cqw;font-family:var(--mono);font-size:2cqw;color:var(--mut)"><s>1.500 llamadas al día</s> &nbsp;·&nbsp; <s>10 auditadas a mano</s></div>
+    <div class="kbig" style="position:absolute;left:6cqw;top:21cqw;font-size:9.4cqw;color:var(--fg)">¿Y las otras</div>
+    <div class="kbig" style="position:absolute;left:6cqw;top:31cqw;font-size:12.5cqw;color:var(--acc)">1.490?</div>
+    <div class="rule" style="left:6cqw;top:46.5cqw;width:30cqw"></div>
+    <div class="meta" style="right:5cqw;bottom:4cqw">00:00–00:06</div>
+  </div>
+  <div class="lab"><b>01 · GANCHO</b><span>frame-01 · 0–6 s</span></div>
+  <p class="note"><b>Entra primero:</b> «1.500» golpea al centro y cambia en el sitio a «10 auditadas a mano»; las dos se tachan y cae «¿Y las otras 1.490?» con la cifra en amarillo. Sale por transformación del «?».</p>
+  <span class="chip">corte → morph</span>
+</section>
+
+<section class="cell" id="frame-02">
+  <div class="cv">
+    <div class="ghost" style="right:-4cqw;bottom:-3cqw">IA</div>
+    <div style="position:absolute;left:50%;top:15cqw;transform:translateX(-50%);width:9cqw;height:9cqw;border-radius:2cqw;background:var(--pri);box-shadow:inset 0 -.8cqw 0 var(--acc),0 0 6cqw rgb(230 179 42 / .35)"></div>
+    <div class="kbig" style="position:absolute;left:0;right:0;top:27cqw;text-align:center;font-size:6.2cqw;color:var(--fg)">Auditoría de Llamadas</div>
+    <div class="kbig" style="position:absolute;left:0;right:0;top:34.5cqw;text-align:center;font-size:4.2cqw;color:var(--acc)">con IA</div>
+    <div style="position:absolute;left:0;right:0;top:42.5cqw;text-align:center;font-family:var(--mono);font-size:1.6cqw;color:var(--mut)">100 % en este computador · sin internet</div>
+    <div class="meta" style="left:5cqw;top:5cqw">Angiografía de Occidente</div>
+  </div>
+  <div class="lab"><b>02 · PRESENTACIÓN</b><span>frame-02 · 6–11 s</span></div>
+  <p class="note"><b>Entra primero:</b> el «?» se encoge y se vuelve el icono; el nombre se arma letra a letra, «con IA» salta en amarillo y la línea de privacidad se escribe. Sale por zoom a través del icono.</p>
+  <span class="chip">morph → zoom</span>
+</section>
+
+</div>
+
+<div class="act">Acto 2 · Así trabaja (11–46 s)</div>
+<div class="grid">
+
+<section class="cell" id="frame-03">
+  <div class="cv">
+    <div class="win" style="left:10cqw;top:5cqw;width:80cqw;height:47cqw">
+      <div class="top"><span class="logo"></span><span class="ttl"><b>Auditoría de Llamadas</b><small>Todo se procesa en este computador. Ningún audio sale de aquí.</small></span></div>
+      <div class="tabs"><span class="tab on">1 Cargar y analizar</span><span class="tab">2 Resultados y revisión</span><span class="tab">Configuración</span></div>
+      <div class="body">
+        <p class="h2">1. Cargue las llamadas</p>
+        <div class="drop"><span class="file">llamada_0451.gsm</span><span class="file">llamada_0452.mp3</span><span class="file">llamada_0453.wav</span></div>
+        <p class="h2" style="margin-top:1.3cqw">2. Analice</p>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span class="seg"><span class="on">Rápido</span><span>Preciso</span><span>Solo reglas</span></span><span class="btn pri">▶ Analizar llamadas</span></div>
+      </div>
+    </div>
+    <div class="ring" style="left:78.5cqw;top:32.5cqw;width:6cqw;height:6cqw"></div>
+    <div class="cursor" style="left:81.5cqw;top:35.5cqw"></div>
+  </div>
+  <div class="lab"><b>03 · CARGAR</b><span>frame-03 · 11–18 s</span></div>
+  <p class="note"><b>Entra primero:</b> la ventana vuela desde el fondo al centro; tres archivos caen en la zona de carga uno tras otro, el cursor elige «Rápido» y el anillo amarillo marca el clic en «Analizar». Sale empujada a la izquierda.</p>
+  <span class="chip">push-left</span>
+</section>
+
+<section class="cell" id="frame-04">
+  <div class="cv">
+    <div class="win" style="left:10cqw;top:5cqw;width:80cqw;height:47cqw">
+      <div class="top"><span class="logo"></span><span class="ttl"><b>Auditoría de Llamadas</b><small>Analizando en este equipo</small></span></div>
+      <div class="tabs"><span class="tab on">1 Cargar y analizar</span><span class="tab">2 Resultados y revisión</span><span class="tab">Configuración</span></div>
+      <div class="body">
+        <p class="h2">Analizando…</p>
+        <div class="bar"><i style="width:68%"></i></div>
+        <div style="display:flex;justify-content:space-between;font-size:1.1cqw;margin-top:.6cqw;color:#4A5275"><span>Llamada 2 de 3 · Criterios</span><b style="color:var(--pri)">Quedan ~2 min</b></div>
+        <ul class="steps">
+          <li><span class="dot ok">✓</span>Audio convertido</li>
+          <li><span class="dot ok">✓</span>Transcripción completa</li>
+          <li><span class="dot ok">✓</span>Hablantes separados: asesor y cliente</li>
+          <li><span class="dot ok">✓</span>Mensajes grabados y música de espera detectados</li>
+          <li><span class="dot run"></span><b>Evaluando criterios de la guía…</b></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="lab"><b>04 · LA IA TRABAJA</b><span>frame-04 · 18–25 s</span></div>
+  <p class="note"><b>Entra primero:</b> la barra se llena con la textura de la app mientras cada etapa se marca con un «pop» verde; el tiempo estimado baja. Sale empujada a la izquierda hacia el detalle.</p>
+  <span class="chip">push-left</span>
+</section>
+
+<section class="cell" id="frame-05">
+  <div class="cv">
+    <div class="win" style="left:6cqw;top:4cqw;width:88cqw;height:49cqw">
+      <div class="top"><span class="logo"></span><span class="ttl"><b>Llamada 0453</b><small>Asesor 12 · 6 min 10 s · Nueva cita</small></span></div>
+      <div class="body" style="display:grid;grid-template-columns:1.35fr 1fr;gap:1.6cqw">
+        <div>
+          <div class="band ivr">Mensaje grabado (IVR) · 00:00–00:42</div>
+          <div class="bub a">Buenos días, Angiografía de Occidente, le habla Laura. ¿En qué le puedo colaborar?</div>
+          <div class="bub c">Quiero una cita para una ecografía.</div>
+          <div class="bub a">Con gusto. Permítame un momento.</div>
+          <div class="band hold">Espera · 81 s</div>
+        </div>
+        <div>
+          <p class="h2">Audio</p>
+          <div class="wave"><i style="height:30%" class="p"></i><i style="height:60%" class="p"></i><i style="height:45%" class="p"></i><i style="height:80%" class="p"></i><i style="height:55%" class="p"></i><i style="height:35%" class="p"></i><i style="height:70%" class="p"></i><i style="height:20%"></i><i style="height:50%"></i><i style="height:75%"></i><i style="height:40%"></i><i style="height:65%"></i><i style="height:30%"></i><i style="height:55%"></i><i style="height:45%"></i><i style="height:25%"></i><i style="height:60%"></i><i style="height:35%"></i></div>
+          <p style="font-family:var(--mono);font-size:1.05cqw;color:var(--pri);margin:.4cqw 0 1.2cqw">▶ 02:31 / 06:10</p>
+          <p style="font-size:1.05cqw;color:#5B6380;margin:0 0 .5cqw">Evidencia</p>
+          <span class="ev">«permítame un momento» · 02:31</span>
+        </div>
+      </div>
+    </div>
+    <div class="ring" style="left:67cqw;top:39.5cqw;width:5cqw;height:5cqw"></div>
+    <div class="cursor" style="left:70.5cqw;top:42cqw"></div>
+  </div>
+  <div class="lab"><b>05 · LEER LA LLAMADA</b><span>frame-05 · 25–33 s</span></div>
+  <p class="note"><b>Entra primero:</b> la cámara entra a la fila y la transcripción sube como chat; aparecen las franjas de IVR y de espera. El clic en la evidencia hace saltar el cabezal del audio a 02:31. Sale empujada a la izquierda.</p>
+  <span class="chip">push-left</span>
+</section>
+
+<section class="cell" id="frame-06">
+  <div class="cv">
+    <div class="win" style="left:6cqw;top:4cqw;width:88cqw;height:49cqw">
+      <div class="top"><span class="logo"></span><span class="ttl"><b>Llamada 0453 · Criterios</b><small>Guía de auditoría · 10 criterios</small></span></div>
+      <div class="body" style="display:grid;grid-template-columns:1.5fr 1fr;gap:1.6cqw">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9cqw">
+          <div class="card"><span class="dot ok">✓</span><div><span class="code">P1</span><b>Saludo e identificación</b><small>Dijo entidad y nombre</small></div></div>
+          <div class="card"><span class="dot ok">✓</span><div><span class="code">V1</span><b>Documento del paciente</b><small>Lo pidió a las 00:58</small></div></div>
+          <div class="card"><span class="dot bad">✗</span><div><span class="code">G1</span><b>Espera en línea</b><small>81 s · supera 60 s</small></div></div>
+          <div class="card"><span class="dot warn">?</span><div><span class="code">Z2</span><b>¿Algo más?</b><small>Revisar · escuchar 05:52</small></div></div>
+        </div>
+        <div style="text-align:center;padding-top:1cqw">
+          <p style="font-family:var(--mono);font-size:1.1cqw;color:#8A90A8;margin:0"><s>70–90 %</s></p>
+          <div class="kbig" style="font-size:7cqw;color:var(--pri)">85 %</div>
+          <span class="pill" style="background:#DFF3E8;color:var(--ok);font-size:1.3cqw;padding:.4cqw 1.2cqw">Aprobado</span>
+          <p style="font-size:1cqw;color:#5B6380;margin-top:1.4cqw;border:.15cqw solid #F1C6C0;border-radius:.6cqw;padding:.6cqw">Error crítico: solo si usted lo confirma</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="lab"><b>06 · CALIFICAR</b><span>frame-06 · 33–40 s</span></div>
+  <p class="note"><b>Entra primero:</b> las cuatro tarjetas caen en cascada y su semáforo hace «pop» (verde, verde, rojo, ámbar). El rango «70–90 %» se tacha y la nota cuenta hasta «85 %». Sale empujada a la izquierda.</p>
+  <span class="chip">push-left</span>
+</section>
+
+<section class="cell" id="frame-07">
+  <div class="cv">
+    <div class="win" style="left:6cqw;top:4cqw;width:88cqw;height:49cqw">
+      <div class="top"><span class="logo"></span><span class="ttl"><b>Auditoría de Llamadas</b><small>248 llamadas analizadas</small></span></div>
+      <div class="tabs"><span class="tab">1 Cargar y analizar</span><span class="tab on">2 Resultados y revisión</span><span class="tab">Configuración</span></div>
+      <div class="body">
+        <table class="t">
+          <tr><th>Llamada</th><th>Asesor</th><th>Duración</th><th>Nota</th><th>Estado</th></tr>
+          <tr><td>0453</td><td>Asesor 12</td><td>6:10</td><td>85 %</td><td><span class="pill" style="background:#DFF3E8;color:var(--ok)">Revisada</span></td></tr>
+          <tr><td>0457</td><td>Asesor 07</td><td>14:32</td><td>60–80 %</td><td><span class="pill auto">Para revisar</span></td></tr>
+          <tr class="hi"><td>0912</td><td>Asesor 03</td><td>0:14</td><td>—</td><td><span class="pill cut">Cortada</span> <span class="pill auto">marcada automáticamente</span></td></tr>
+          <tr><td>0918</td><td>Asesor 12</td><td>3:48</td><td>90 %</td><td><span class="pill" style="background:#DFF3E8;color:var(--ok)">Aprobada</span></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="toast" style="right:9cqw;top:7cqw">✓ Revisión guardada · Ctrl+S</div>
+  </div>
+  <div class="lab"><b>07 · REVISIÓN Y DESCARTES</b><span>frame-07 · 40–46 s</span></div>
+  <p class="note"><b>Entra primero:</b> el cursor pulsa «Cumple» en Z2 y la ventana de detalle se cierra con el aviso «Revisión guardada»; en la lista se resalta la llamada de 14 s, cortada y apartada sola. Sale: entra el panel del asistente por la derecha.</p>
+  <span class="chip">slide-in-right</span>
+</section>
+
+</div>
+
+<div class="act">Acto 3 · Nuevo: pregúntele a sus llamadas (46–62 s)</div>
+<div class="grid">
+
+<section class="cell" id="frame-08">
+  <div class="cv">
+    <div class="win" style="left:3cqw;top:6cqw;width:54cqw;height:45cqw;opacity:.45">
+      <div class="top"><span class="logo"></span><span class="ttl"><b>Auditoría de Llamadas</b></span></div>
+      <div class="tabs"><span class="tab">1 Cargar y analizar</span><span class="tab on">2 Resultados</span></div>
+    </div>
+    <div class="chat" style="right:4cqw;top:3cqw;width:48cqw;height:50cqw">
+      <div class="hd"><span class="logo" style="width:2cqw;height:2cqw;border-radius:.5cqw;background:var(--acc)"></span>Asistente · pregunte por sus llamadas</div>
+      <div class="bd">
+        <div class="q">¿Cuál fue la llamada más larga y por qué se demoró?</div>
+        <div class="ans"><span class="big">Llamada 0457 · 14 min 32 s</span>
+          Se demoró por:
+          <ul><li>IVR de 4 min 25 s antes de que contestara el asesor</li><li>Espera de 81 s sin anunciar</li><li>3 transferencias entre áreas</li></ul>
+          <div style="margin-top:.6cqw;display:flex;gap:.6cqw"><span class="ev">Escuchar 05:33</span><span class="ev">Abrir llamada</span></div>
+        </div>
+      </div>
+      <div class="inp">Escriba una pregunta…</div>
+    </div>
+    <div class="meta" style="left:5cqw;bottom:3cqw;color:var(--acc)">Nuevo · concepto</div>
+  </div>
+  <div class="lab"><b>08 · CHATBOT: LA MÁS LARGA</b><span>frame-08 · 46–56 s</span></div>
+  <p class="note"><b>Entra primero:</b> el panel «Asistente» entra por la derecha y la ventana se atenúa; la pregunta se escribe letra a letra, aparece «Buscando en 248 llamadas…» y la respuesta se arma línea por línea. <b>Pausa intencional</b> de ~1,5 s sobre las causas.</p>
+  <span class="chip">corte en el mismo hilo</span>
+</section>
+
+<section class="cell" id="frame-09">
+  <div class="cv">
+    <div class="chat" style="left:50%;transform:translateX(-50%);top:3cqw;width:62cqw;height:50cqw">
+      <div class="hd"><span class="logo" style="width:2cqw;height:2cqw;border-radius:.5cqw;background:var(--acc)"></span>Asistente · pregunte por sus llamadas</div>
+      <div class="bd">
+        <div class="q" style="opacity:.55">¿Cuál fue la llamada más larga y por qué se demoró?</div>
+        <div class="ans" style="opacity:.55;padding:.6cqw 1cqw"><b>Llamada 0457 · 14 min 32 s</b></div>
+        <div class="q">¿Y la más corta?</div>
+        <div class="ans"><span class="big">Llamada 0912 · 14 s</span>
+          El cliente colgó antes del saludo.<br>Marcada como <b>cortada</b>: no cuenta en la nota.
+          <div style="margin-top:.6cqw"><span class="ev">Ver en la lista</span></div>
+        </div>
+      </div>
+      <div class="inp">Escriba una pregunta…</div>
+    </div>
+  </div>
+  <div class="lab"><b>09 · CHATBOT: LA MÁS CORTA</b><span>frame-09 · 56–62 s</span></div>
+  <p class="note"><b>Entra primero:</b> el hilo sube y la segunda pregunta se escribe; la respuesta enlaza con la llamada cortada de la escena 07 (devolución). Sale: el panel se cierra y la ventana vuelve al frente.</p>
+  <span class="chip">push-left</span>
+</section>
+
+</div>
+
+<div class="act">Acto 4 · Salidas y control (62–90 s)</div>
+<div class="grid">
+
+<section class="cell" id="frame-10">
+  <div class="cv">
+    <div class="win" style="left:3cqw;top:6cqw;width:52cqw;height:44cqw">
+      <div class="top"><span class="logo"></span><span class="ttl"><b>Resultados</b></span></div>
+      <div class="body">
+        <div style="border:.2cqw solid var(--pri);border-radius:.7cqw;padding:.7cqw 1cqw;font-size:1.15cqw;color:var(--pri);margin-bottom:1cqw">🔍 Asesor 12 · Hoy</div>
+        <table class="t"><tr><th>Llamada</th><th>Nota</th></tr><tr><td>0453</td><td>85 %</td></tr><tr><td>0918</td><td>90 %</td></tr><tr><td>0931</td><td>80 %</td></tr></table>
+        <div style="margin-top:1.2cqw"><span class="btn pri">⬇ Exportar a Excel</span></div>
+      </div>
+    </div>
+    <div class="ring" style="left:9.5cqw;top:31.5cqw;width:5cqw;height:5cqw"></div>
+    <div class="cursor" style="left:12.5cqw;top:34cqw"></div>
+    <div class="xl" style="right:2.5cqw;top:7cqw;width:41cqw;font-size:1.3cqw">
+      <div class="bar1">Matriz de auditoría · septiembre.xlsx</div>
+      <table><tr><th>Llamada</th><th>P1</th><th>V1</th><th>G1</th><th>Z2</th><th>Nota</th></tr>
+        <tr><td>0453</td><td>1</td><td>1</td><td>0</td><td>1</td><td>85%</td></tr>
+        <tr><td>0918</td><td>1</td><td>1</td><td>1</td><td>1</td><td>90%</td></tr>
+        <tr><td>0931</td><td>1</td><td>0</td><td>1</td><td>1</td><td>80%</td></tr></table>
+      <div class="tabsx"><span>Auditorías</span><span>Descartadas</span></div>
+    </div>
+  </div>
+  <div class="lab"><b>10 · BUSCAR Y EXPORTAR</b><span>frame-10 · 62–68 s</span></div>
+  <p class="note"><b>Entra primero:</b> el filtro se escribe y la tabla se reduce; clic en «Exportar a Excel» y las filas vuelan a la derecha y se acomodan en la hoja con el formato de la matriz. Sale por corte a la ventana sola.</p>
+  <span class="chip">corte</span>
+</section>
+
+<section class="cell" id="frame-11">
+  <div class="cv">
+    <div class="win" style="left:17cqw;top:6cqw;width:66cqw;height:42cqw;display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:0">
+      <div style="background:#fff;border-top:.4cqw solid var(--acc)"></div>
+      <div style="background:linear-gradient(160deg,#dfe8ff,#f6f2ff)"></div>
+      <div style="background:linear-gradient(160deg,#c9f1e6,#e9d9ff)"></div>
+      <div style="background:#10162E"></div>
+    </div>
+    <div style="position:absolute;left:17cqw;top:50cqw;width:66cqw;display:grid;grid-template-columns:repeat(4,1fr);font-family:var(--mono);font-size:1.3cqw;text-align:center;color:var(--fg)"><span style="color:var(--acc)">Corporativo</span><span>Liquid Glass</span><span>Aurora</span><span>Oscuro</span></div>
+    <div class="meta" style="left:4cqw;top:4cqw">6 estilos · claro / oscuro</div>
+  </div>
+  <div class="lab"><b>11 · A SU ESTILO</b><span>frame-11 · 68–72 s</span></div>
+  <p class="note"><b>Entra primero:</b> la ventana queda fija al centro y se re-viste en el sitio cada ~0,8 s (Corporativo → Liquid Glass → Aurora → oscuro), con la etiqueta cambiando debajo. El boceto muestra los cuatro estados uno al lado del otro. Sale empujada a la izquierda.</p>
+  <span class="chip">push-left</span>
+</section>
+
+<section class="cell" id="frame-12">
+  <div class="cv">
+    <div class="win" style="left:4cqw;top:8cqw;width:40cqw;height:24cqw">
+      <div class="top"><span class="logo"></span><span class="ttl"><b>Configuración</b></span></div>
+      <div class="body" style="display:flex;justify-content:space-between;align-items:center;gap:1cqw">
+        <div><b style="font-size:1.25cqw">Notificar por correo</b><br><small style="font-size:1cqw;color:#5B6380">Avisar cada mañana que la app está activa</small></div>
+        <span class="toggle"></span>
+      </div>
+    </div>
+    <div style="position:absolute;left:44cqw;top:22cqw;font-size:5cqw">✉️</div>
+    <div class="mail" style="right:4cqw;top:12cqw;width:44cqw">
+      <div style="background:var(--pri);color:#fff;padding:.8cqw 1.2cqw;font-size:1.1cqw;box-shadow:inset 0 -.3cqw 0 var(--acc)">Bandeja de entrada · coordinación</div>
+      <div style="padding:1.2cqw">
+        <p style="margin:0;font-size:1cqw;color:#5B6380">De: Auditoría de Llamadas · 07:00</p>
+        <p style="margin:.4cqw 0 .8cqw;font-size:1.45cqw;font-weight:700;color:var(--pri)">✅ La app de auditoría está activa</p>
+        <p style="margin:0;font-size:1.1cqw;line-height:1.5">0 errores · 120 llamadas en cola · IA local lista</p>
+      </div>
+    </div>
+    <div class="meta" style="left:5cqw;bottom:3cqw;color:var(--acc)">Nuevo · concepto</div>
+  </div>
+  <div class="lab"><b>12 · AVISO POR CORREO</b><span>frame-12 · 72–78 s</span></div>
+  <p class="note"><b>Entra primero:</b> el interruptor se enciende con un clic (amarillo); un sobre sale volando en arco y se abre como el correo en la bandeja. Sale con zoom hacia atrás al panel general.</p>
+  <span class="chip">zoom-out</span>
+</section>
+
+<section class="cell" id="frame-13">
+  <div class="cv">
+    <div class="meta" style="left:5cqw;top:4.5cqw;color:var(--acc)">Nuevo · concepto</div>
+    <div class="kbig" style="position:absolute;left:5cqw;top:8cqw;font-size:3.6cqw;color:var(--fg)">Inconformidades del período</div>
+    <div style="position:absolute;left:5cqw;top:16cqw;width:58cqw">
+      <div class="hbar"><span>No pregunta «¿algo más?» (Z2)</span><i class="top" style="width:100%"></i><b>38</b></div>
+      <div class="hbar"><span>Espera ≥ 60 s sin anunciar (G1)</span><i style="width:63%"></i><b>24</b></div>
+      <div class="hbar"><span>No pide documento del paciente (V1)</span><i style="width:45%"></i><b>17</b></div>
+      <div class="hbar"><span>Saludo incompleto (P1)</span><i style="width:29%"></i><b>11</b></div>
+    </div>
+    <div style="position:absolute;right:5cqw;top:9cqw;width:26cqw;text-align:right">
+      <div class="kbig" style="font-size:11cqw;color:var(--acc)">90</div>
+      <div style="font-size:1.4cqw;color:var(--mut)">inconformidades en 248 llamadas</div>
+      <div style="margin-top:2cqw;background:rgb(255 255 255 / .07);border-radius:.8cqw;padding:1cqw;text-align:left;font-size:1.15cqw;line-height:1.8">
+        <b style="font-family:var(--mono);color:var(--acc)">Por asesor</b><br>Asesor A · 9<br>Asesor B · 7<br>Asesor C · 6
+      </div>
+    </div>
+  </div>
+  <div class="lab"><b>13 · PANEL DE INCONFORMIDADES</b><span>frame-13 · 78–86 s</span></div>
+  <p class="note"><b>Entra primero:</b> el contador «90» cuenta desde 0 mientras las barras crecen de izquierda a derecha (la mayor en amarillo); el ranking por asesor entra al final. Sale con zoom hacia atrás hasta el sello.</p>
+  <span class="chip">zoom-out</span>
+</section>
+
+<section class="cell" id="frame-14">
+  <div class="cv">
+    <div class="ghost" style="left:-3cqw;bottom:-4cqw">importa</div>
+    <div class="kbig" style="position:absolute;left:0;right:0;top:15cqw;text-align:center;font-size:6.6cqw;color:var(--fg)">Usted revisa</div>
+    <div class="kbig" style="position:absolute;left:0;right:0;top:23cqw;text-align:center;font-size:6.6cqw;color:var(--fg)">lo que <span style="color:var(--acc)">importa.</span></div>
+    <div style="position:absolute;left:50%;top:36cqw;transform:translateX(-50%);display:flex;gap:1.2cqw;align-items:center">
+      <span style="width:3.4cqw;height:3.4cqw;border-radius:.8cqw;background:var(--pri);box-shadow:inset 0 -.35cqw 0 var(--acc)"></span>
+      <span style="font-size:1.6cqw;font-weight:700">Auditoría de Llamadas con IA</span>
+      <span style="font-family:var(--mono);font-size:1.25cqw;color:var(--mut)">· Angiografía de Occidente</span>
+    </div>
+  </div>
+  <div class="lab"><b>14 · CIERRE</b><span>frame-14 · 86–90 s</span></div>
+  <p class="note"><b>Entra primero:</b> el panel se condensa en el icono; «Usted revisa lo que importa.» entra palabra por palabra y «importa» se enciende en amarillo. Se sostiene quieto hasta el último cuadro.</p>
+  <span class="chip">final sostenido</span>
+</section>
+
+<section class="cell" id="seams">
+  <div class="cv">
+    <div class="seam">
+      <div><b>01</b><span>corte</span></div><div><b>02</b><span>morph</span></div><div><b>03</b><span>zoom</span></div><div><b>04</b><span>push ←</span></div><div><b>05</b><span>push ←</span></div><div><b>06</b><span>push ←</span></div><div><b>07</b><span>push ←</span></div><div><b>08</b><span>entra →</span></div><div><b>09</b><span>corte</span></div><div><b>10</b><span>push ←</span></div><div><b>11</b><span>corte</span></div><div><b>12</b><span>push ←</span></div><div><b>13</b><span>zoom-out</span></div><div><b>14</b><span>zoom-out</span></div>
+    </div>
+  </div>
+  <div class="lab"><b>MAPA DE TRANSICIONES</b><span>14 escenas · 90 s</span></div>
+  <p class="note"><b>Regla de dirección:</b> todo avanza hacia la izquierda; solo los cambios de nivel (entrar a la app, salir al panel y al sello) usan zoom.</p>
+</section>
+
+<section class="cell" id="tokens">
+  <div class="cv"><div style="position:absolute;inset:0;padding:3.5cqw 4.5cqw;font-size:1.9cqw">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.6cqw 3cqw">
+      <span><i class="sw" style="background:#071338"></i>Fondo #071338</span>
+      <span><i class="sw" style="background:#001F78"></i>Primario #001F78</span>
+      <span><i class="sw" style="background:#E6B32A"></i>Acento #E6B32A</span>
+      <span><i class="sw" style="background:#585C5E"></i>Gris #585C5E</span>
+    </div>
+    <p style="margin:2.6cqw 0 .8cqw"><b class="kbig" style="font-size:3.2cqw">Montserrat 900</b> · títulos cinéticos</p>
+    <p style="margin:0 0 .8cqw;font-family:var(--ui);font-size:2cqw">Segoe UI · interfaz de la app</p>
+    <p style="margin:0 0 1.6cqw;font-family:var(--mono);font-size:1.8cqw">JetBrains Mono · etiquetas y códigos</p>
+    <p style="margin:0;color:var(--mut);font-size:1.5cqw;line-height:1.5"><b style="color:var(--acc)">Prohibido:</b> datos reales de pacientes o asesores · degradados violeta/cian · textos de menos de 2 s · escenas sin movimiento</p>
+  </div></div>
+  <div class="lab"><b>DISEÑO</b><span>frame.md</span></div>
+  <p class="note">Colores del estilo Corporativo de la app; una sola tinta de acento (amarillo) para el foco de cada escena.</p>
+</section>
+
+</div>
+<p style="padding:10px 48px 40px;color:#4A5275;font-size:13px">Las pantallas 03–07, 10 y 11 reconstruyen la interfaz real. El chatbot (08–09), el correo (12) y el panel de inconformidades (13) son funciones nuevas en concepto. Todos los datos de llamadas y asesores son ficticios.</p>
+</body>
+</html>

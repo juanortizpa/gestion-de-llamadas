@@ -1,0 +1,8 @@
+# Aplicabilidad de criterios por tipo de llamada (D-15, PROPUESTO: confirmar con el usuario).
+# Un criterio no aplicable cuenta como cumplido (P-06) y se marca "n/a" en el informe.
+[not_applicable]
+nueva_cita = []
+confirmacion = ["V2"]
+cancelacion = ["V2"]
+informacion = ["V1", "V2", "Z1"]
+desconocido = []

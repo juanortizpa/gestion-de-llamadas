@@ -1,0 +1,25 @@
+# PII y artefactos pesados: NUNCA versionar audios, transcripciones ni modelos
+data/
+models/
+llamadas auditadas/
+llamadas no auditadas/
+benchmarks/results/
+.venv/
+__pycache__/
+*.egg-info/
+*.gsm
+*.mp3
+*.wav
+config/agents.toml
+
+# Datos de personas y artefactos locales
+.claude/
+.pytest_cache/
+presentacion/*
+!presentacion/Video_Auditoria_IA.mp4
+videos/**/.thumbnails/
+videos/**/snaps*/
+videos/**/snapshots/
+videos/**/.hyperframes/preview/
+*.log
+*.pyc

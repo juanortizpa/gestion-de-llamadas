@@ -1,0 +1,10 @@
+{
+  "_nota": "Auditoria HUMANA de las 6 llamadas auditadas (plantilla Matriz_Auditoria_Llamadas). 1=cumple, 0=no cumple. Ver CONTEXT.md 11.1",
+  "1870774": {"aud": "AUD-001", "_corregido": "G1 humano=1 era error del auditor; el usuario confirmo la espera real de ~81 s (2026-10-06)", "P1":1,"P2":1,"V1":1,"V2":1,"G1":0,"G2":1,"C1":1,"C2":1,"Z1":1,"Z2":1,"E1":0, "motivo": "Solicitud cita medico general"},
+  "1870775": {"aud": "AUD-002", "P1":1,"P2":1,"V1":1,"V2":1,"G1":1,"G2":1,"C1":1,"C2":1,"Z1":1,"Z2":1,"E1":0, "motivo": "Cancelar cita"},
+  "1870686": {"aud": "AUD-003", "P1":1,"P2":1,"V1":1,"V2":1,"G1":1,"G2":1,"C1":1,"C2":1,"Z1":0,"Z2":1,"E1":0, "motivo": "cardiologia pediatrica"},
+  "1870634": {"aud": "AUD-004", "P1":1,"P2":1,"V1":1,"V2":1,"G1":1,"G2":1,"C1":1,"C2":1,"Z1":1,"Z2":1,"E1":0, "motivo": "Informacion laboratorio / confirmacion de cita"},
+  "1870600": {"aud": "AUD-005", "P1":1,"P2":1,"V1":0,"V2":0,"G1":1,"G2":1,"C1":1,"C2":1,"Z1":1,"Z2":1,"E1":0, "motivo": "Solicitud cita medico general", "obs": "error de campana"},
+  "1870590": {"aud": "AUD-006", "P1":1,"P2":1,"V1":1,"V2":1,"G1":1,"G2":1,"C1":1,"C2":1,"Z1":1,"Z2":1,"E1":0, "motivo": "Solicitud cita medico general"}
+}
+

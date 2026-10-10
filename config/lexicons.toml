@@ -1,0 +1,104 @@
+# Lexicos en minuscula y SIN tildes (el codigo normaliza el texto igual).
+
+[recorded]
+# Mensajes grabados (IVR inicial y bucle de espera). No son el asesor.
+templates = [
+  "senor usuario para su mayor comodidad comuniquese por favor a nuestro nuevo numero de whatsapp",
+  "angiografia de occidente recolecta sus datos personales de acuerdo a la politica de privacidad y tratamiento de informacion de la entidad",
+  "dando cumplimiento a la ley 1581 de 2012 y al decreto 1377 de 2013 sobre proteccion de datos personales",
+  "si desea mayor informacion acerca de nuestra politica de datos visitenos en www",
+  "visitenos en www angiografiadeoccidente com co",
+  "si continua con la llamada se entendera que acepta el tratamiento de datos personales de lo contrario cuelgue",
+  "si usted pertenece a una condicion de patologia oncologica enfermedad huerfana o patologia de riesgo cardiovascular por favor informar a uno de nuestros agentes de call center antes de la asignacion de su cita",
+  "apreciada usuaria si usted se encuentra en estado de embarazo y desea iniciar su control prenatal o solicitar la interrupcion voluntaria del mismo por favor acuda de manera presencial a su ips primaria donde sera atendida sin cita previa por el profesional de control prenatal",
+  "gracias por comunicarse con angiografia de occidente nuestro personal esta a su servicio",
+  "le recordamos que nuestros horarios de atencion para asignacion de cita son de lunes a viernes de 7 de la manana a 6 de la tarde y los sabados de 7 de la manana a 1 de la tarde",
+]
+
+[roles]
+# Frases tipicas del ASESOR (peso). Se buscan con coincidencia aproximada.
+agent_phrases = [
+  ["en que le puedo servir", 3],
+  ["en que le puedo colaborar", 3],
+  ["en que le puedo ayudar", 3],
+  ["habla con", 2],
+  ["le habla", 2],
+  ["con quien tengo el gusto", 2],
+  ["permitame un momento", 3],
+  ["permitame el numero de documento", 3],
+  ["numero de documento", 2],
+  ["numero de cedula", 2],
+  ["validamos", 2],
+  ["me confirma", 2],
+  ["le confirmo", 2],
+  ["le agendo", 2],
+  ["le queda agendada", 3],
+  ["algo mas en que le pueda", 3],
+  ["que tenga una buena", 2],
+  ["hasta luego", 1],
+  ["con gusto", 1],
+  ["debe presentarse", 3],
+  ["debe presentar", 2],
+  ["orden medica", 1],
+  ["autorizacion", 1],
+]
+entity_names = ["angiografia de occidente", "angiografia", "nueva eps"]
+# Frases tipicas del CLIENTE (peso)
+client_phrases = [
+  ["para pedir una cita", 3],
+  ["quiero una cita", 3],
+  ["necesito una cita", 3],
+  ["quisiera una cita", 3],
+  ["es para mi mama", 2],
+  ["es para mi", 1],
+  ["quiero cancelar", 3],
+  ["una pregunta", 1],
+]
+
+
+[rules]
+saludo = ["buenos dias", "buenas tardes", "buenas noches", "buen dia", "buena tarde", "hola", "muy buenas"]
+# Variantes que el STT produce para el nombre de la entidad (incluye errores frecuentes medidos: "9PS", "no EPS")
+entidad = ["angiografia de occidente", "angiografia", "nueva eps", "nueva e p s", "nueva ps", "9ps", "no eps", "angio", "de occidente"]
+presentacion = ["mi nombre es", "le habla", "habla con", "habla", "le atiende", "soy", "con quien", "le saluda", "lo atiende", "la atiende"]
+doc_request = ["numero de documento", "numero de cedula", "numero de identificacion", "su documento", "su cedula",
+               "me confirma su numero", "validamos", "cedula", "documento", "identificacion", "registro civil",
+               "tarjeta de identidad", "tarjeta identidad"]
+exam_hints = ["que examen", "tipo de examen", "que estudio", "orden medica", "tiene la orden", "numero de orden", "autorizacion",
+              "que eps", "que tomografia", "que resonancia", "que ecografia", "que radiografia", "antecedentes", "alergia",
+              "ayuno", "embarazo", "para que especialidad", "que cita", "que servicio", "que procedimiento", "cual es el examen"]
+hold_phrases = ["permitame un momento", "un momento por favor", "no me cuelgue", "me regala un momento", "espere un momento",
+                "lo pongo en espera", "le pongo en espera", "me permite un momento", "un segundito", "un momentico",
+                "permitame un instante", "permitame un segundo", "me da un momento", "dame un momento", "un momentito",
+                "su momento", "me espera un momento", "en linea un momento", "permitame un momentico", "ya le confirmo"]
+algo_mas = ["algo mas en que le pueda", "algo mas en que", "necesita algo mas", "requiere algo mas", "alguna otra consulta",
+            "otra cosa en que", "algo adicional", "algo mas que le pueda", "en que mas le puedo", "alguna otra inquietud",
+            "algo mas para", "colaborar con algo mas", "ayudar con algo mas"]
+despedida = ["hasta luego", "que tenga una buena", "que tenga buena", "que tenga buen", "que este muy bien", "que este bien", "feliz tarde",
+             "feliz dia", "buen dia", "buena tarde", "buenas tardes", "buenas noches", "gracias por comunicarse", "chao", "adios",
+             "hasta pronto", "un placer", "gracias por llamar", "que le vaya bien", "con gusto"]
+cortesia = ["por favor", "con gusto", "gracias", "muy amable", "senora", "senor", "senorita", "disculpe", "permitame",
+            "con mucho gusto", "claro que si", "a la orden", "mucho gusto"]
+inadecuado_fuerte = ["mierda", "idiota", "estupid", "carajo", "gonorrea", "maldit", "hijueputa", "no me moleste", "problema suyo", "que pereza", "no me interesa"]
+inadecuado_debil = ["no se", "ni idea", "ya le dije", "eso no me corresponde", "no entiendo nada"]
+# Slots de Z1
+agenda_confirm = ["queda agendada", "le queda agendada", "quedo agendada", "le agendo", "queda programada", "su cita es",
+                  "le queda la cita", "le quedo la cita", "le asigno", "queda asignada", "cita para", "le confirmo", "le queda el", "agendada", "agendamos"]
+cancel_confirm = ["queda cancelada", "cancelada", "cancelado", "anulada", "la cancelo", "le cancelo", "quedo cancelada", "cancelamos"]
+fecha_words = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo", "manana", "pasado manana",
+               "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+hora_words = ["de la manana", "de la tarde", "a la una", "a las", "mediodia", "en punto", "a.m", "p.m", "hora"]
+sede_words = ["sede", "direccion", "calle", "carrera", "avenida", "cra", "barrio", "clinica", "centro", "piso", "edificio",
+              "villa colombia", "imagenes", "torre", "consultorio", "laboratorio", "ubicad", "queda en"]
+medico_words = ["doctor", "doctora", "dr", "dra", "especialista", "medico general", "medica general", "con el doctor", "con la doctora", "profesional"]
+soportes_words = ["documento", "cedula", "orden", "autorizacion", "carnet", "cuota moderadora", "copago", "presentar", "llevar", "traer", "soportes", "carne"]
+consulta_words = ["medico general", "medicina general", "especialista", "consulta", "cardiologia", "pediatr", "ginecolog", "dermatolog",
+                  "ortoped", "neurolog", "oftalmolog", "urolog", "nutricion", "psicolog", "con el doctor", "con la doctora"]
+prep_words = ["ayuno", "contraste", "vejiga", "suspender", "medicamento", "hidratar", "preparacion", "sin comer", "agua", "laxante", "toma de liquidos"]
+# Tipo de llamada (por palabras del cliente y del asesor)
+t_cancelacion = ["cancelar", "cancelacion", "anular", "cancele", "cancelo"]
+t_confirmacion = ["confirmar", "confirmacion", "confirmar la cita", "confirmar mi cita"]
+t_nueva = ["pedir una cita", "solicitar una cita", "necesito una cita", "quiero una cita", "quisiera una cita", "asignar", "agendar",
+           "asignacion", "sacar una cita", "una cita", "cita con", "cita para", "reservar"]
+t_info = ["informacion", "horario", "cuanto cuesta", "requisitos", "resultados", "consultar", "direccion", "me pueden informar", "preguntar"]
+

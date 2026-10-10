@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-10-08T21:08:11.054Z",
+  "enabled": true,
+  "provider": "musicgen",
+  "mode": "detached-seed-loop",
+  "path": "assets/bgm/track.wav",
+  "log": "C:\\Users\\PT\\Desktop\\GESTION DE LLAMADAS\\videos\\auditoria-ia-promo\\assets\\bgm\\bgm-1791493513473.log",
+  "pid": 52300,
+  "target_duration_s": 30,
+  "seed_duration_s": 28,
+  "loop_count": 2,
+  "timeout_ms": 120000,
+  "status": "timeout",
+  "ready": false,
+  "waited_ms": 120005,
+  "process_alive": true,
+  "message": "Timed out waiting for assets/bgm/track.wav; assemble-index will skip BGM if still absent.",
+  "log_tail": "arning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\\Users\\PT\\.cache\\huggingface\\hub\\models--facebook--musicgen-small. Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.\r\nTo support symlinks on Windows, you either need to activate Developer Mode or to run Python as an administrator. In order to activate developer mode, see this article: https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development\r\n  warnings.warn(message)\r\n[transformers] Model config: pad_token_id must be `None` or an integer within the vocabulary (between 0 and 2047), got 2048. This may result in unexpected behavior.\r\n[transformers] Model config: bos_token_id must be `None` or an integer within the vocabulary (between 0 and 2047), got 2048. This may result in unexpected behavior.\r\nC:\\Users\\PT\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\huggingface_hub\\file_download.py:149: UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\\Users\\PT\\.cache\\huggingface\\hub. Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.\r\nTo support symlinks on Windows, you either need to activate Developer Mode or to run Python as an administrator. In order to activate developer mode, see this article: https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development\r\n  warnings.warn(message)\r\n"
+}

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llamadas"
+version = "0.1.0"
+description = "Auditoria automatica de llamadas (100% local, $0)"
+requires-python = ">=3.12"
+dependencies = [
+  "faster-whisper==1.2.1",
+  "sherpa-onnx>=1.13",
+  "numpy",
+  "rapidfuzz>=3",
+  "psutil",
+  "openpyxl",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+llamadas = "llamadas.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+
