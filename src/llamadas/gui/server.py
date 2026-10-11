@@ -15,6 +15,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from ..audio import find_ffmpeg, parse_filename
+from ..complaints import (complaints_xlsx, delete_complaint, dismiss_suggestion, list_complaints, options,
+                          save_complaint, suggestions)
 from ..config import ROOT, load_settings
 from ..export import collect, export_xlsx
 from ..jobs import AUDIO_EXT, JobManager, forget, incoming_dir, store_dir
@@ -162,6 +164,12 @@ class Handler(BaseHTTPRequestHandler):
         if m and ID_RE.match(m.group(1)):
             wav = _wav_for_playback(m.group(1))
             return self._file(wav, "audio/wav") if wav else self._json({"error": "sin audio"}, 404)
+        if p == "/api/quejas":
+            return self._json({"quejas": list_complaints(S), "sugeridas": suggestions(S), "opciones": options(S)})
+        if p == "/api/quejas/export":
+            tmp = Path(tempfile.gettempdir()) / "Quejas_Usuarios.xlsx"
+            complaints_xlsx(tmp, S)
+            return self._file(tmp, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Quejas_Usuarios.xlsx")
         if p == "/api/export":
             q = parse_qs(u.query)
             tmp = Path(tempfile.gettempdir()) / "Matriz_Auditoria_Llamadas.xlsx"
@@ -194,6 +202,12 @@ class Handler(BaseHTTPRequestHandler):
                 if f.suffix.lower() in AUDIO_EXT:
                     f.unlink()
             return self._json({"ok": True})
+        if p == "/api/quejas":
+            return self._json({"ok": True, "queja": save_complaint(json.loads(self._body() or b"{}"), S)})
+        m = re.match(r"^/api/quejas/descartar/([^/]+)$", p)
+        if m and ID_RE.match(m.group(1)):
+            dismiss_suggestion(m.group(1), S)
+            return self._json({"ok": True})
         m = re.match(r"^/api/review/([^/]+)$", p)
         if m and ID_RE.match(m.group(1)):
             saved = save_review(m.group(1), json.loads(self._body() or b"{}"), S)
@@ -202,7 +216,11 @@ class Handler(BaseHTTPRequestHandler):
         return self._json({"error": "ruta desconocida"}, 404)
 
     def do_DELETE(self):
-        m = re.match(r"^/api/call/([^/]+)$", urlparse(self.path).path)
+        p = urlparse(self.path).path
+        m = re.match(r"^/api/quejas/([^/]+)$", p)
+        if m and ID_RE.match(m.group(1)):
+            return self._json({"ok": delete_complaint(m.group(1), S)})
+        m = re.match(r"^/api/call/([^/]+)$", p)
         if not (m and ID_RE.match(m.group(1))):
             return self._json({"error": "no"}, 404)
         cid = m.group(1)
