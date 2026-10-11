@@ -32,6 +32,8 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
   <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></symbol>
   <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
   <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M12 8v4M12 15.5v.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 </svg>
 <div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
 
@@ -41,6 +43,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
     <span class="glider" id="glider"></span>
     <button class="tab active" data-view="cargar"><b>1</b> Cargar y analizar</button>
     <button class="tab" data-view="resultados"><b>2</b> Resultados y revisión</button>
+    <button class="tab" data-view="quejas"><b>3</b> Quejas</button>
     <button class="tab" data-view="config"><svg class="i"><use href="#i-gear"/></svg> Configuración</button>
   </nav>
   <div class="top-actions">
@@ -128,7 +131,35 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
     </div>
   </section>
 
-  <!-- ============ 3. CONFIGURACIÓN ============ -->
+  <!-- ============ 3. QUEJAS ============ -->
+  <section id="view-quejas" class="view">
+    <div class="cards" id="qSummary"></div>
+    <div class="card" id="qDetect" style="--i:4" hidden>
+      <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-chat"/></svg></span>
+        <div><h2>Posibles quejas detectadas en las llamadas</h2><p>Frases del cliente que suenan a queja. Escuche la cita y decida: regístrela o descártela.</p></div></div>
+      <div class="q-sugs" id="qSugs"></div>
+    </div>
+    <div class="card" style="--i:5">
+      <div class="q-head">
+        <h2>Quejas de usuarios</h2>
+        <button class="btn primary" id="btnNuevaQueja" type="button"><svg class="i"><use href="#i-plus"/></svg> Nueva queja</button>
+      </div>
+      <div class="searchbar">
+        <label class="fld grow">Buscar<input id="qSearch" type="search" placeholder="Usuario, documento, asesor, sede, ID de llamada…"></label>
+        <label class="fld">Categoría<select id="qCat"><option value="">Todas</option></select></label>
+        <label class="fld">Prioridad<select id="qPrio"><option value="">Todas</option></select></label>
+      </div>
+      <div class="toolbar">
+        <div class="chips" id="qFilters"></div>
+        <a class="btn ghost" href="/api/quejas/export" title="Descarga una hoja de Excel con todas las quejas"><svg class="i"><use href="#i-download"/></svg> Exportar quejas</a>
+      </div>
+      <p class="count-line" id="qCount"></p>
+      <div class="table-wrap"><table class="calls" id="qTable"></table></div>
+      <p class="empty" id="qEmpty" hidden>Aún no hay quejas registradas. Use «Nueva queja» o registre una de las detectadas en las llamadas.</p>
+    </div>
+  </section>
+
+  <!-- ============ 4. CONFIGURACIÓN ============ -->
   <section id="view-config" class="view">
     <div class="card" style="--i:0">
       <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-brush"/></svg></span>
@@ -202,6 +233,55 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
           </div>
           <p class="hint" id="saveMsg">Atajo: Ctrl + S guarda y cierra.</p>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ============ QUEJA ============ -->
+<div id="qModal" class="modal" hidden>
+  <div class="modal-box q-box">
+    <div class="modal-head">
+      <button class="btn ghost" id="qBack" type="button"><svg class="i"><use href="#i-back"/></svg> Volver a las quejas</button>
+      <div class="mh-title"><h2 id="qTitle">Nueva queja</h2><p id="qSub"></p></div>
+      <div class="mh-score" id="qState"></div>
+    </div>
+    <div class="q-body">
+      <div class="card">
+        <h3>Usuario</h3>
+        <div class="grid2">
+          <label>Nombre del usuario o paciente<input id="qUsuario" placeholder="Ej. Marta Pérez"></label>
+          <label>Documento<input id="qDocumento" inputmode="numeric" placeholder="Cédula o tarjeta de identidad"></label>
+          <label>Teléfono<input id="qTelefono" inputmode="tel" placeholder="Ej. 300 123 4567"></label>
+        </div>
+      </div>
+      <div class="card">
+        <h3>La queja</h3>
+        <div class="grid2">
+          <label>Fecha de la queja<input id="qFecha" type="date"></label>
+          <label>Canal<select id="qCanal"></select></label>
+          <label>Categoría<select id="qCategoria"></select></label>
+          <label>Asesor implicado<input id="qAsesor" list="qAsesores" placeholder="Nombre del asesor"></label>
+          <label>Sede<input id="qSede" list="qSedes" placeholder="Sede relacionada"></label>
+          <label>Llamada relacionada<input id="qLlamada" placeholder="ID de la llamada (opcional)"></label>
+        </div>
+        <datalist id="qAsesores"></datalist><datalist id="qSedes"></datalist>
+        <div id="qEvidencia"></div>
+        <label>Descripción<textarea id="qDescripcion" rows="4" placeholder="Qué pasó, según el usuario…"></textarea></label>
+      </div>
+      <div class="card">
+        <h3>Gestión</h3>
+        <div class="grid2">
+          <div><span class="q-lbl">Prioridad</span><div class="seg" id="qPrioSeg"></div></div>
+          <label>Fecha límite de respuesta<input id="qPlazo" type="date"></label>
+          <label>Responsable<input id="qResponsable" placeholder="Quién la gestiona"></label>
+        </div>
+        <span class="q-lbl">Estado</span><div class="seg" id="qEstadoSeg"></div>
+        <label>Respuesta o solución<textarea id="qRespuesta" rows="3" placeholder="Qué se le respondió al usuario o cómo se solucionó…"></textarea></label>
+        <div class="row">
+          <button class="btn primary big" id="qSave" type="button"><svg class="i"><use href="#i-check"/></svg> Guardar queja</button>
+          <button class="btn danger ghost" id="qDelete" type="button" hidden><svg class="i"><use href="#i-trash"/></svg> Eliminar queja</button>
+        </div>
+        <p class="hint" id="qMsg">Atajo: Ctrl + S guarda y cierra.</p>
       </div>
     </div>
   </div>
