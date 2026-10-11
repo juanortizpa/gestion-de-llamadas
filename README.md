@@ -96,6 +96,7 @@ Escriba los nombres de los asesores. Ese archivo es privado y no se sube a git.
 2. **Cargar y analizar:** arrastre los audios (`.gsm`, `.mp3`, `.wav`) y pulse **Analizar**.
 3. **Resultados y revisión:** abra cada llamada, resuelva los criterios con **?** y guarde.
 4. **Exportar a Excel:** genera la matriz con el formato de `Matriz_Auditoria_Llamadas plantilla.xlsx`.
+5. **Quejas:** registre y haga seguimiento a las quejas de usuarios (prioridad, fecha límite, responsable, estado); el sistema sugiere las llamadas donde el cliente se quejó.
 
 Los datos (audios, transcripciones, resultados) se guardan en `data/`, que **no** se versiona.
 
