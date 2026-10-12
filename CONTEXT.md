@@ -634,6 +634,13 @@ Entregable de gestión (no es parte del motor de auditoría): `presentacion/Eval
 - **Cargos confirmados por el usuario (2026-10-09):** Katherine Mosquera y Meiby Araujo = AUXILIAR DE AGENDAMIENTO; Mery Julieth Sánchez = LIDER DE AGENDAMIENTO; las otras 23 = AUXILIAR DE CALL CENTER (sin sufijo IPS/Angiografía). Fijados en el diccionario `CARGOS` del generador; ya no se leen del Excel fuente.
 - **Pendiente:** correos electrónicos de los colaboradores (columna en hoja Correos) y la firma de los borradores.
 
+### 16.11 Panel de quejas de usuarios (2026-10-11)
+
+- **Pestaña «3 Quejas»** en la interfaz, con el mismo sistema de diseño (tokens, estilos, Corporativo, animaciones): KPIs (abiertas, en gestión, vencidas, cerradas este mes, detectadas), tabla con búsqueda, filtros por estado/categoría/prioridad y ventana de detalle con Ctrl+S.
+- **Registro manual:** usuario (nombre, documento, teléfono), fecha, canal, categoría (catálogo cerrado en `complaints.py`), asesor (de `agents.toml`) y sede (de la base maestra), llamada relacionada, prioridad con **fecha límite por defecto** (alta 3, media 8, baja 15 días calendario, contados desde la fecha de la queja o desde hoy si ya pasó; editable), responsable, estado abierta → en gestión → cerrada y respuesta. Vencida = sin cerrar y fecha límite anterior a hoy.
+- **Detección automática:** frases del cliente en `lexicons.toml [quejas]`, coincidencia **exacta por palabra completa** (no aproximada: se prefiere precisión, una sugerencia falsa cuesta tiempo) y solo en turnos que no son del asesor. Cada sugerencia trae la cita literal y abre la llamada en ese punto. El auditor la registra o la descarta; nunca se crea una queja sola.
+- **Datos:** `data/quejas.json` (no versionado; contiene datos personales), escritura atómica. Exportación a Excel `Quejas_Usuarios.xlsx`. Pruebas: `tests/unit/test_quejas.py`.
+
 ## 17. Registro de decisiones
 
 | Fecha | ID | Decisión | Motivo |
@@ -669,6 +676,7 @@ Entregable de gestión (no es parte del motor de auditoría): `presentacion/Eval
 | 2026-10-06 | D-26 | Criterios que dependen del saludo: ausencia con STT de baja confianza = pendiente (no fallo). Nota final como rango min–max mientras haya pendientes | STT deforma nombres/entidad |
 | 2026-10-06 | D-27 | Evidencia por coincidencia aproximada exige texto ≥60 % del tamaño de la frase (bug `partial_ratio`); medico solo en consultas | Revisión con datos reales |
 | 2026-10-05 | D-13 | Llamadas entrantes y salientes; entidades: **Angiografía de Occidente** y **Nueva EPS** → `entity.yaml` con perfiles por entidad; roles por contenido, no por "quién habla primero" | Dato del usuario |
+| 2026-10-11 | D-32 | Panel de quejas: registro manual con plazos por prioridad + sugerencias por léxico exacto en turnos del cliente (las confirma una persona). Datos en `data/quejas.json`, fuera de git | Usuario pidió panel de quejas |
 
 *(Agregar filas nuevas aquí cada vez que se decida algo importante. Modelo de STT/LLM/diarización: **sin decidir** hasta el benchmark.)*
 

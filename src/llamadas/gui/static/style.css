@@ -434,3 +434,34 @@ html[data-motion="off"] *,html[data-motion="off"] *::before,html[data-motion="of
 
 .discard-note{flex:1 1 100%;font-size:.86rem;color:var(--ink);background:var(--warn-bg);border-radius:var(--r-sm);padding:10px 12px;display:block}
 .discard-note .std{margin:6px 0 0}
+
+/* ---- quejas ---- */
+#modal{z-index:21} /* una llamada abierta desde una queja queda encima */
+.kpi.bad b,[data-style="corporativo"] .kpi.bad b{color:var(--bad)}
+.q-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.q-head h2{margin:0}
+.q-sugs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:14px}
+.q-sug{position:relative;overflow:hidden;border:var(--border);border-radius:var(--r-sm);padding:14px 16px 14px 20px;background:var(--surface-2);box-shadow:var(--btn-shadow);
+  animation:rise .45s var(--ease) both;animation-delay:calc(min(var(--i,0),10) * 45ms)}
+.q-sug::after{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--warn)}
+[data-style="corporativo"] .q-sug::after{background:var(--acc)}
+.q-sug-h b{display:block;font-family:var(--font-d)}
+.q-sug-h small{color:var(--mut);font-size:.82rem;font-variant-numeric:tabular-nums}
+.q-sug .quote,#qEvidencia .quote{display:block;width:fit-content;max-width:100%;margin-top:8px;font-size:.88rem}
+.q-sug .row{margin-top:12px}
+.q-two>*{display:block}.q-two small{color:var(--mut)}
+.prio{display:inline-flex;align-items:center;gap:6px;font-size:.84rem;font-weight:600;white-space:nowrap}
+.prio::before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor}
+.prio.alta{color:var(--bad)}.prio.media{color:var(--warn)}.prio.baja{color:var(--gray)}
+.pill.q-abierta{background:var(--warn-bg);color:var(--warn)}.pill.q-en_gestion{background:var(--pri-soft);color:var(--pri)}
+.pill.q-cerrada{background:var(--ok-bg);color:var(--ok)}.pill.q-vencida{background:var(--bad-bg);color:var(--bad)}
+.q-late,.q-late small{color:var(--bad);font-weight:600}
+.q-box{max-width:980px}
+.q-body{padding:18px 24px}
+.q-body .card h3{margin-bottom:4px}
+.q-lbl{display:block;font-size:.86rem;color:var(--mut);margin:10px 0 6px}
+#qPrioSeg button.sel[data-v="alta"]{background:var(--bad);color:#fff}
+#qPrioSeg button.sel[data-v="media"]{background:var(--warn);color:var(--paper)}
+#qEstadoSeg button.sel[data-v="cerrada"]{background:var(--ok);color:#fff}
+.mh-score .pill{font-size:.9rem;padding:7px 14px}
+@media (max-width:720px){.q-body{padding-inline:16px}}

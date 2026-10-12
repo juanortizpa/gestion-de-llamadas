@@ -102,3 +102,14 @@ t_nueva = ["pedir una cita", "solicitar una cita", "necesito una cita", "quiero 
            "asignacion", "sacar una cita", "una cita", "cita con", "cita para", "reservar"]
 t_info = ["informacion", "horario", "cuanto cuesta", "requisitos", "resultados", "consultar", "direccion", "me pueden informar", "preguntar"]
 
+[quejas]
+# Frases del CLIENTE que suenan a queja (pestana Quejas). Coincidencia EXACTA por palabras completas tras normalizar:
+# preferir frases especificas; una palabra suelta muy comun genera sugerencias falsas.
+frases = ["queja", "quejas", "quejarme", "me quiero quejar", "poner una queja", "interponer una queja", "radicar una queja",
+          "poner un reclamo", "hacer un reclamo", "reclamacion", "pqr", "pqrs", "derecho de peticion", "tutela", "supersalud",
+          "superintendencia de salud", "inconforme", "inconformidad", "estoy muy molesto", "estoy muy molesta", "falta de respeto",
+          "es el colmo", "no es justo", "una verguenza", "pesimo", "pesima atencion", "mal servicio", "mala atencion",
+          "atienden muy mal", "nadie contesta", "nadie me contesta", "nadie responde", "no contestan", "me colgaron",
+          "me dejaron colgado", "llevo mucho tiempo esperando", "me tienen esperando", "llevo dias llamando",
+          "no me han dado respuesta", "no me dan respuesta", "no me han llamado", "siempre es lo mismo",
+          "hablar con un supervisor", "hablar con el supervisor", "hablar con el coordinador", "hablar con el jefe"]

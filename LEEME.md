@@ -24,7 +24,14 @@ Todo funciona **en este computador, sin internet y sin costo**. Los audios no sa
    correcto, abra la llamada, elija **«Auditar normal»** y guarde. Su decisión siempre reemplaza a la del sistema.
    **Buscar:** por ID de llamada, archivo, asesor o tipo, y por **fecha y hora de análisis** (desde / hasta, o los atajos
    «Última hora», «Hoy», «Últimos 7 días»). La columna **Analizada** muestra cuándo se procesó cada llamada.
-4. **Pestaña Configuración:** elija el estilo visual (Liquid Glass, Glassmorfismo, Aurora, Neumorfismo, Minimalista,
+4. **Pestaña 3 — Quejas:** registre y haga seguimiento a las quejas de los usuarios. Cada queja lleva usuario (nombre,
+   documento y teléfono), categoría, asesor y sede implicados, llamada relacionada, prioridad, fecha límite, responsable,
+   estado (**Abierta → En gestión → Cerrada**) y la respuesta dada. La fecha límite se calcula sola según la prioridad
+   (alta 3 días, media 8, baja 15) y se puede cambiar; las quejas sin cerrar que pasan esa fecha salen como **Vencidas**.
+   Arriba aparecen las **posibles quejas detectadas en las llamadas**: frases del cliente como «quiero poner una queja» o
+   «pésimo servicio», con la cita para escucharla. Pulse **Registrar queja** (se llena con la llamada y la cita) o
+   **No es una queja** (no se vuelve a sugerir). **Exportar quejas** descarga un Excel con todas.
+5. **Pestaña Configuración:** elija el estilo visual (Liquid Glass, Glassmorfismo, Aurora, Neumorfismo, Minimalista,
    Clásico), la paleta de color, modo claro/oscuro, nivel de animaciones, su nombre de auditor y el modo de análisis por defecto.
    Si el equipo se siente lento, ponga las animaciones en **Suaves**.
    El estilo **Corporativo** usa los colores de Angiografía de Occidente (azul #001F78, amarillo #E6B32A, gris #585C5E)

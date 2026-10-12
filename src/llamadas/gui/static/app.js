@@ -133,6 +133,7 @@ function show(view) {
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + view));
   moveGlider();
   if (view === "resultados") loadCalls(true);
+  if (view === "quejas") loadQuejas(true);
   if (view === "config") renderConfig();
 }
 $("#tabs").onclick = e => { const b = e.target.closest(".tab"); if (!b) return; if (b.dataset.view === "resultados") FOCUS = null; show(b.dataset.view); };
@@ -498,6 +499,171 @@ $("#btnDelete").onclick = async () => {
   if (!confirm("¿Eliminar esta llamada? Se borrarán el audio, la transcripción y los resultados. No se puede deshacer.")) return;
   await api("/api/call/" + CUR.id, { method: "DELETE" }); closeModal(true); toast("Llamada eliminada", "ok");
 };
+
+/* ---------------- quejas ---------------- */
+let QJ = { quejas: [], sugeridas: [], opciones: null }, QFILTER = "activas", QCUR = null, QSNAP = "";
+const QFILTERS = [["activas","Sin cerrar"],["abierta","Abiertas"],["en_gestion","En gestión"],["vencida","Vencidas"],["cerrada","Cerradas"],["todas","Todas"]];
+const QF = ["usuario", "documento", "telefono", "fecha", "canal", "categoria", "asesor", "sede", "llamada", "descripcion", "plazo", "responsable", "respuesta"];
+const qIn = k => $("#q" + k[0].toUpperCase() + k.slice(1));
+const todayIso = () => localIso(new Date()).slice(0, 10);
+const fmtDay = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "—";
+const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return localIso(d).slice(0, 10); };
+function leftTxt(plazo) {
+  const d = Math.round((new Date(plazo + "T12:00:00") - new Date(todayIso() + "T12:00:00")) / 864e5);
+  return d === 0 ? "Vence hoy" : d === 1 ? "Vence mañana" : `Faltan ${d} días`;
+}
+async function loadQuejas(animate) {
+  try { QJ = await api("/api/quejas"); } catch (e) { return toast("No se pudieron cargar las quejas"); }
+  fillQOptions(); renderQuejas(animate);
+}
+function fillQOptions() {
+  const o = QJ.opciones; if (!o || $("#qCat").options.length > 1) return;
+  const add = (sel, map) => Object.entries(map).forEach(([v, l]) => sel.appendChild(new Option(l, v)));
+  add($("#qCat"), o.categorias); add($("#qPrio"), o.prioridades); add($("#qCategoria"), o.categorias); add($("#qCanal"), o.canales);
+  o.asesores.forEach(n => $("#qAsesores").appendChild(new Option(n, n))); o.sedes.forEach(n => $("#qSedes").appendChild(new Option(n, n)));
+}
+function renderQuejas(animate) {
+  const all = QJ.quejas, o = QJ.opciones, hoy = todayIso();
+  const n = k => all.filter(q => q.estado === k).length, venc = all.filter(q => q.vencida).length;
+  const mes = all.filter(q => q.estado === "cerrada" && (q.cerrada_el || "").slice(0, 7) === hoy.slice(0, 7)).length;
+  const sum = $("#qSummary"); sum.innerHTML = "";
+  [["Abiertas", n("abierta"), n("abierta") ? "warn" : ""], ["En gestión", n("en_gestion"), ""], ["Vencidas", venc, venc ? "bad" : ""],
+   ["Cerradas este mes", mes, "ok"], ["Detectadas en llamadas", QJ.sugeridas.length, QJ.sugeridas.length ? "warn" : ""]].forEach(([l, v, c], i) => {
+    const k = el("div", "kpi " + c); k.style.setProperty("--i", i); const b = el("b"); k.append(b, el("span", "", l)); sum.appendChild(k);
+    if (animate) countUp(b, v); else b.textContent = v;
+  });
+  const sb = $("#qSugs"); sb.innerHTML = ""; $("#qDetect").hidden = !QJ.sugeridas.length;
+  QJ.sugeridas.forEach((s, i) => {
+    const it = el("div", "q-sug"); it.style.setProperty("--i", i);
+    const h = el("div", "q-sug-h");
+    h.append(el("b", "", "Llamada " + s.llamada), el("small", "", [s.fecha && fmtDay(s.fecha), s.asesor, s.duracion_s != null ? fmt(s.duracion_s) + " min" : ""].filter(Boolean).join(" · ")));
+    it.appendChild(h);
+    s.hallazgos.slice(0, 3).forEach(f => {
+      const q = el("div", "quote", `▶ ${fmt(f.start)} “${f.cita.length > 140 ? f.cita.slice(0, 140) + "…" : f.cita}”`);
+      q.title = "Abrir la llamada en este punto"; q.onclick = () => qListen(s.llamada, f); it.appendChild(q);
+    });
+    const row = el("div", "row");
+    const reg = el("button", "btn primary", "Registrar queja"); reg.type = "button"; reg.onclick = () => openQueja(null, s);
+    const no = el("button", "btn ghost", "No es una queja"); no.type = "button";
+    no.onclick = async () => { await api("/api/quejas/descartar/" + encodeURIComponent(s.llamada), { method: "POST" }); toast(`Llamada ${s.llamada}: no se volverá a sugerir`, "ok"); loadQuejas(); };
+    row.append(reg, no); it.appendChild(row); sb.appendChild(it);
+  });
+  const f = $("#qFilters"); f.innerHTML = "";
+  QFILTERS.forEach(([k, l]) => { const b = el("button", "chipf" + (QFILTER === k ? " active" : ""), l); b.type = "button"; b.onclick = () => { QFILTER = k; renderQuejas(); }; f.appendChild(b); });
+  const q = norm($("#qSearch").value.trim()), cat = $("#qCat").value, pr = $("#qPrio").value;
+  const rows = all.filter(x => (QFILTER === "todas" || (QFILTER === "activas" ? x.estado !== "cerrada" : QFILTER === "vencida" ? x.vencida : x.estado === QFILTER)) &&
+    (!cat || x.categoria === cat) && (!pr || x.prioridad === pr) &&
+    (!q || norm([x.id, x.usuario, x.documento, x.telefono, x.asesor, x.sede, x.llamada, x.responsable, x.descripcion].join(" ")).includes(q)));
+  const PR = { alta: 0, media: 1, baja: 2 };
+  rows.sort((a, b) => (a.estado === "cerrada") - (b.estado === "cerrada") || b.vencida - a.vencida || PR[a.prioridad] - PR[b.prioridad] || (a.plazo || "").localeCompare(b.plazo || ""));
+  $("#qCount").textContent = all.length ? `Mostrando ${rows.length} de ${all.length} quejas${venc ? ` · ${venc} vencida${venc > 1 ? "s" : ""}` : ""}.` : "";
+  $("#qEmpty").hidden = all.length > 0;
+  const t = $("#qTable"); t.innerHTML = "";
+  if (animate) { t.classList.add("enter"); clearTimeout(t._e); t._e = setTimeout(() => t.classList.remove("enter"), 1200); }
+  if (!rows.length) { if (all.length) t.appendChild(el("tr")).appendChild(el("td", "empty", "Ninguna queja coincide con la búsqueda.")); return; }
+  const head = el("tr"); ["Queja", "Fecha", "Categoría", "Asesor y sede", "Prioridad", "Plazo", "Estado", ""].forEach(h => head.appendChild(el("th", "", h))); t.appendChild(head);
+  rows.forEach((x, i) => {
+    const tr = el("tr", "row-c"); tr.dataset.id = x.id; tr.style.setProperty("--i", i); tr.onclick = () => openQueja(x);
+    const nm = el("td", "callname");
+    nm.append(el("b", "", `${x.id} · ${x.usuario || "Usuario sin nombre"}`), el("small", "", [x.documento && "Doc. " + x.documento, x.llamada && "Llamada " + x.llamada, o.canales[x.canal]].filter(Boolean).join(" · ")));
+    tr.appendChild(nm);
+    tr.appendChild(el("td", "analyzed", fmtDay(x.fecha)));
+    tr.appendChild(el("td", "", o.categorias[x.categoria] || "—"));
+    const as = el("td", "q-two"); as.append(el("span", "", x.asesor || "—"), el("small", "", x.sede)); tr.appendChild(as);
+    tr.appendChild(el("td")).appendChild(el("span", "prio " + x.prioridad, o.prioridades[x.prioridad]));
+    const pl = el("td", "analyzed" + (x.vencida ? " q-late" : ""));
+    pl.append(fmtDay(x.plazo), el("small", "", x.estado === "cerrada" ? (x.cerrada_el ? "Cerrada el " + fmtDay(x.cerrada_el) : "") : x.vencida ? "Vencida" : x.plazo ? leftTxt(x.plazo) : ""));
+    tr.appendChild(pl);
+    tr.appendChild(el("td")).appendChild(el("span", "pill q-" + (x.vencida ? "vencida" : x.estado), x.vencida ? "Vencida" : o.estados[x.estado]));
+    tr.appendChild(el("td")).appendChild(el("button", "btn", "Ver →")).type = "button";
+    t.appendChild(tr);
+  });
+}
+/* Fecha límite automática por prioridad (desde la fecha de la queja, o desde hoy si ya pasó); si el auditor la cambia, se respeta */
+const qAutoPlazo = () => { const f = qIn("fecha").value || todayIso(); return addDays(f > todayIso() ? f : todayIso(), QJ.opciones.plazo_dias[QCUR.prioridad] || 8); };
+function openQueja(q, sug) {
+  if (!QJ.opciones) return;
+  const base = q ? { ...q } : { fecha: todayIso(), canal: "llamada", categoria: "otro", prioridad: "media", estado: "abierta" };
+  if (sug) Object.assign(base, { llamada: sug.llamada, asesor: sug.asesor || "", fecha: sug.fecha || todayIso(),
+    descripcion: "Detectada en la llamada: " + sug.hallazgos.map(h => `“${h.cita}” (${fmt(h.start)})`).join(" · ") });
+  QCUR = { id: base.id || null, prioridad: base.prioridad, estado: base.estado, plazoAuto: !base.plazo, hits: sug ? sug.hallazgos : null };
+  QF.forEach(k => qIn(k).value = base[k] || "");
+  if (!base.plazo) qIn("plazo").value = qAutoPlazo();
+  $("#qTitle").textContent = base.id ? `Queja ${base.id}` : "Nueva queja";
+  $("#qSub").textContent = base.id ? `Registrada el ${fmtAnalyzed(base.creada || "")}${base.actualizada && base.actualizada !== base.creada ? " · actualizada el " + fmtAnalyzed(base.actualizada) : ""}`
+    : "Los datos del usuario se guardan solo en este equipo.";
+  $("#qDelete").hidden = !base.id;
+  renderQSegs(); renderQEvidence();
+  const b = $("#qSave"); b.disabled = false; b.classList.remove("done"); b.innerHTML = icon("check") + " Guardar queja";
+  $("#qMsg").textContent = "Atajo: Ctrl + S guarda y cierra.";
+  const m = $("#qModal"); m.classList.remove("closing"); m.hidden = false; document.body.style.overflow = "hidden"; m.scrollTop = 0;
+  QSNAP = qSnapshot();
+}
+function renderQSegs() {
+  const o = QJ.opciones;
+  segment($("#qPrioSeg"), Object.entries(o.prioridades), QCUR.prioridad, v => { QCUR.prioridad = v; if (QCUR.plazoAuto) qIn("plazo").value = qAutoPlazo(); renderQSegs(); });
+  segment($("#qEstadoSeg"), Object.entries(o.estados), QCUR.estado, v => { QCUR.estado = v; renderQSegs(); });
+  $$("#qPrioSeg button").forEach((b, i) => b.dataset.v = Object.keys(o.prioridades)[i]);
+  $$("#qEstadoSeg button").forEach((b, i) => b.dataset.v = Object.keys(o.estados)[i]);
+  const late = QCUR.estado !== "cerrada" && qIn("plazo").value && qIn("plazo").value < todayIso();
+  const st = $("#qState"); st.innerHTML = "";
+  st.append(el("span", "pill q-" + (late ? "vencida" : QCUR.estado), late ? "Vencida" : o.estados[QCUR.estado]));
+}
+/* Citas de la llamada relacionada: un clic abre la llamada encima de la queja, en ese punto del audio */
+function renderQEvidence() {
+  const box = $("#qEvidencia"); box.innerHTML = "";
+  const id = qIn("llamada").value.trim(); if (!id) return;
+  (QCUR.hits || []).forEach(f => { const q = el("div", "quote", `▶ ${fmt(f.start)} “${f.cita}”`); q.title = "Escuchar este fragmento"; q.onclick = () => qListen(id, f); box.appendChild(q); });
+  const row = el("div", "row"), b = el("button", "btn"); b.type = "button"; b.innerHTML = icon("play") + " Abrir la llamada "; b.append(id);
+  b.onclick = () => qListen(id); row.appendChild(b); box.appendChild(row);
+}
+async function qListen(id, f) { await openCall(id); if (f && CUR?.id === id && isOpen()) seek(f.start, f.turn_id); }
+const qSnapshot = () => JSON.stringify([QF.map(k => qIn(k).value), QCUR.prioridad, QCUR.estado]);
+function qOpen() { const m = $("#qModal"); return !m.hidden && !m.classList.contains("closing"); }
+function closeQueja(force) {
+  if (!qOpen()) return;
+  if (!force && qSnapshot() !== QSNAP && !confirm("Tiene cambios sin guardar en esta queja. ¿Salir sin guardar?")) return;
+  const m = $("#qModal"); m.classList.add("closing");
+  setTimeout(() => { m.hidden = true; m.classList.remove("closing"); document.body.style.overflow = ""; }, PREFS.motion === "off" ? 0 : 270);
+}
+async function saveQueja() {
+  const btn = $("#qSave"); if (btn.disabled) return;
+  const body = { id: QCUR.id, prioridad: QCUR.prioridad, estado: QCUR.estado };
+  QF.forEach(k => body[k] = qIn(k).value.trim());
+  if (!body.usuario && !body.descripcion) { $("#qMsg").textContent = "Escriba al menos el nombre del usuario o la descripción de la queja."; qIn("usuario").focus(); return; }
+  btn.disabled = true; btn.textContent = "Guardando…";
+  let r;
+  try { r = await api("/api/quejas", { method: "POST", body: JSON.stringify(body) }); }
+  catch (e) { r = { ok: false, error: "No hay conexión con el programa. Verifique que la ventana negra siga abierta." }; }
+  if (!r.ok) {
+    btn.disabled = false; btn.innerHTML = icon("check") + " Guardar queja";
+    $("#qMsg").textContent = "No se guardó: " + (r.error || "error desconocido") + ". Intente de nuevo.";
+    return;
+  }
+  btn.classList.add("done"); btn.innerHTML = '<svg class="i check"><use href="#i-check"/></svg> Guardada';
+  QSNAP = qSnapshot();
+  setTimeout(async () => {
+    closeQueja(true); await loadQuejas();
+    const tr = $(`#qTable tr[data-id="${r.queja.id}"]`); if (tr) { tr.classList.add("flash"); tr.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+    toast(`Queja ${r.queja.id} guardada`, "ok");
+  }, PREFS.motion === "off" ? 150 : 650);
+}
+$("#btnNuevaQueja").onclick = () => openQueja(null);
+$("#qBack").onclick = () => closeQueja();
+$("#qSave").onclick = saveQueja;
+$("#qDelete").onclick = async () => {
+  if (!QCUR.id || !confirm(`¿Eliminar la queja ${QCUR.id}? No se puede deshacer.`)) return;
+  await api("/api/quejas/" + encodeURIComponent(QCUR.id), { method: "DELETE" }); closeQueja(true); loadQuejas(); toast("Queja eliminada", "ok");
+};
+["qSearch", "qCat", "qPrio"].forEach(id => $("#" + id).addEventListener("input", () => renderQuejas()));
+qIn("plazo").addEventListener("input", () => { QCUR.plazoAuto = false; renderQSegs(); });
+qIn("fecha").addEventListener("input", () => { if (QCUR.plazoAuto) qIn("plazo").value = qAutoPlazo(); renderQSegs(); });
+qIn("llamada").addEventListener("input", renderQEvidence);
+document.addEventListener("keydown", e => {
+  if (!$("#modal").hidden || !qOpen()) return; // con una llamada abierta encima, las teclas son de la llamada
+  if (e.key === "Escape") closeQueja();
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveQueja(); }
+});
 
 applyPrefs();
 pickMode(PREFS.defMode);
