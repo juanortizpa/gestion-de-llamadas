@@ -93,3 +93,16 @@ def final_view(audit: dict, review: dict | None, settings: Settings | None = Non
         estado = "Revisar posible error crítico" if not pend_flag else estado
     return {"criteria": crit, "points": points, "pending": pending, "percent": percent, "estado": estado, "e1": e1,
             "reviewed": bool(review.get("reviewed"))}
+
+
+def ui_state(audit: dict, final: dict) -> str:
+    """Estado que ve el auditor en la lista: descartada | sin_conversacion | error | revisada | revisar | lista."""
+    if final.get("discarded"):
+        return "descartada"
+    if not audit.get("criteria"):
+        return "sin_conversacion" if audit.get("status") == "no_speech" else "error"
+    if final.get("reviewed"):
+        return "revisada"
+    if final["pending"] or audit["human_review"]["required"] or final["e1"] == "candidato":
+        return "revisar"
+    return "lista"

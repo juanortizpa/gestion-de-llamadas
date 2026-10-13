@@ -68,3 +68,21 @@ quote_min_ratio = 88              # una cita del LLM solo vale si aparece (aprox
 [review]
 pass_percent = 80                 # < 80 % = No aprobado (dato del usuario)
 
+
+[chat]
+# Asistente de consulta sobre las auditorias. Preguntas de conteo/ranking/listas se responden con codigo (sin IA);
+# solo las preguntas abiertas usan la IA local con unos pocos fragmentos recuperados.
+mode = "rapido"                   # IA local que redacta (rapido | preciso)
+embed_model = "llm/multilingual-e5-small-q8_0.gguf"   # opcional: si falta, la busqueda usa solo texto (FTS5)
+embed_port = 8090
+embed_query_prefix = "query: "    # e5 exige estos prefijos; si se cambia de modelo, ajustar o dejar vacio
+embed_doc_prefix = "passage: "
+top_k = 6                         # maximo de fragmentos que se entregan a la IA
+context_tokens = 1100             # presupuesto de tokens de contexto (la CPU lee ~40 tok/s: cada token cuesta)
+max_answer_tokens = 350
+window_words = 90                 # tamano aproximado de cada fragmento de transcripcion
+max_per_call = 2                  # diversidad: maximo de fragmentos por llamada
+min_cosine = 0.80                 # SIN CALIBRAR con datos reales: por debajo, un candidato vectorial no cuenta
+idle_stop_min = 10                # apaga la IA del chat tras N minutos sin usarla (libera RAM)
+cache_size = 64                   # respuestas recientes reutilizables
+history_chars = 240               # cuanto de cada turno previo se reenvia a la IA

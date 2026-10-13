@@ -135,6 +135,7 @@ function show(view) {
   if (view === "resultados") loadCalls(true);
   if (view === "quejas") loadQuejas(true);
   if (view === "config") renderConfig();
+  if (view === "asistente") initChat();
 }
 $("#tabs").onclick = e => { const b = e.target.closest(".tab"); if (!b) return; if (b.dataset.view === "resultados") FOCUS = null; show(b.dataset.view); };
 /* «Ver resultados» lleva solo a las llamadas del último análisis; si fue una, la abre directamente */

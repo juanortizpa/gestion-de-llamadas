@@ -21,12 +21,26 @@ from ..config import ROOT, load_settings
 from ..export import collect, export_xlsx
 from ..jobs import AUDIO_EXT, JobManager, forget, incoming_dir, store_dir
 from ..llm import LlamaServer
-from ..review import CODES, final_view, load_review, save_review
+from ..review import CODES, final_view, load_review, save_review, ui_state
 
 STATIC = Path(__file__).parent / "static"
 S = load_settings()
 JOBS = JobManager(S)
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
+NL = bytes([10])        # separador de lineas del flujo NDJSON
+_CHAT = None
+_CHAT_LOCK = threading.Lock()
+
+
+def chat_engine():
+    """Asistente de consulta (se crea al primer uso). Mientras corre un lote de analisis no enciende la IA del chat."""
+    global _CHAT
+    with _CHAT_LOCK:
+        if _CHAT is None:
+            from ..chat import ChatEngine
+            _CHAT = ChatEngine(S, busy=lambda: bool(JOBS.status().get("running")))
+            _CHAT.start_background()
+        return _CHAT
 
 GUIDE = {
     "P1": ("Saludo", "Saluda amablemente, indica la entidad y se identifica con nombre."),
@@ -44,18 +58,7 @@ GUIDE = {
 
 def _summary(row: dict) -> dict:
     au, fin = row["audit"], row["final"]
-    st = au.get("status")
-    sin = not au.get("criteria")
-    if fin.get("discarded"):
-        estado_ui = "descartada"
-    elif sin:
-        estado_ui = "sin_conversacion" if st == "no_speech" else "error"
-    elif fin.get("reviewed"):
-        estado_ui = "revisada"
-    elif fin["pending"] or au["human_review"]["required"] or fin["e1"] == "candidato":
-        estado_ui = "revisar"
-    else:
-        estado_ui = "lista"
+    estado_ui = ui_state(au, fin)
     date = au["call"].get("received_date") or ""
     time_ = au["call"].get("received_time") or ""
     analyzed = au.get("analyzed_at")
@@ -170,6 +173,8 @@ class Handler(BaseHTTPRequestHandler):
             tmp = Path(tempfile.gettempdir()) / "Quejas_Usuarios.xlsx"
             complaints_xlsx(tmp, S)
             return self._file(tmp, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Quejas_Usuarios.xlsx")
+        if p == "/api/chat/status":
+            return self._json(chat_engine().status())
         if p == "/api/export":
             q = parse_qs(u.query)
             tmp = Path(tempfile.gettempdir()) / "Matriz_Auditoria_Llamadas.xlsx"
@@ -208,12 +213,54 @@ class Handler(BaseHTTPRequestHandler):
         if m and ID_RE.match(m.group(1)):
             dismiss_suggestion(m.group(1), S)
             return self._json({"ok": True})
+        if p == "/api/chat":
+            return self._chat_stream()
+        if p == "/api/chat/reindex":
+            d = json.loads(self._body() or b"{}")
+            eng = chat_engine()
+            if d.get("rebuild"):
+                threading.Thread(target=lambda: eng.sync_now(rebuild=True), daemon=True).start()
+            else:
+                eng.ensure_fresh(force=True)
+            return self._json({"ok": True})
         m = re.match(r"^/api/review/([^/]+)$", p)
         if m and ID_RE.match(m.group(1)):
             saved = save_review(m.group(1), json.loads(self._body() or b"{}"), S)
             au = json.loads((S.data_dir / "results" / f"{m.group(1)}.audit.json").read_text(encoding="utf-8"))
             return self._json({"ok": True, "review": saved, "final": final_view(au, saved, S)})
         return self._json({"error": "ruta desconocida"}, 404)
+
+    def _chat_stream(self):
+        """Respuesta del asistente en NDJSON: una linea JSON por evento (ruta, tokens, fuentes, fin). La IA local genera
+        ~10 tokens/s, asi que se muestra a medida que sale."""
+        n = int(self.headers.get("Content-Length") or 0)
+        if n > 20_000:
+            return self._json({"error": "Pregunta demasiado larga"}, 413)
+        try:
+            d = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            return self._json({"error": "JSON inválido"}, 400)
+        hist = [{"q": str(h.get("q", ""))[:600], "a": str(h.get("a", ""))[:600]} for h in (d.get("history") or [])[-3:] if isinstance(h, dict)]
+        ctx = d.get("ctx") if isinstance(d.get("ctx"), dict) else None
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        gen = chat_engine().ask_stream(str(d.get("question", "")), ctx, hist)
+        try:
+            for ev in gen:
+                self.wfile.write(json.dumps(ev, ensure_ascii=False).encode("utf-8") + NL)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass                       # el usuario cerro la pestana o paro la respuesta
+        except Exception as e:         # nunca dejar la conexion colgada
+            try:
+                self.wfile.write(json.dumps({"type": "error", "message": f"Error del asistente: {e}"}, ensure_ascii=False).encode("utf-8") + NL)
+            except OSError:
+                pass
+        finally:
+            gen.close()                # libera el candado de la IA si se corto a mitad
 
     def do_DELETE(self):
         p = urlparse(self.path).path
@@ -228,6 +275,7 @@ class Handler(BaseHTTPRequestHandler):
             for f in pat.glob(f"{cid}.*"):
                 f.unlink()
         forget(S, cid)
+        chat_engine().forget(cid)      # privacidad: tambien se borran sus fragmentos y vectores del asistente
         return self._json({"ok": True})
 
 

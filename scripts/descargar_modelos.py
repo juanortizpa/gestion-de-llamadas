@@ -4,6 +4,7 @@ Uso:  .venv\\Scripts\\python.exe scripts\\descargar_modelos.py [--preciso]
 
   (siempre)   Whisper medium, diarizacion (segmentacion + titanet), llama.cpp y Qwen2.5-3B  (~3 GB)
   --preciso   ademas Qwen2.5-7B (~4.5 GB), para el modo "Preciso"
+  --chat      ademas el modelo de embeddings del Asistente (~150 MB; sin el, el Asistente busca solo por palabras)
 
 Es idempotente: lo que ya existe no se vuelve a bajar.
 """
@@ -84,9 +85,28 @@ def gguf(repo: str, fichero: str, etiqueta: str) -> None:
     print("  listo")
 
 
+def embeddings() -> None:
+    """multilingual-e5-small en GGUF (conversion de la comunidad: verificar licencia y calidad antes de uso en produccion)."""
+    print("[+] Modelo de embeddings del Asistente (multilingual-e5-small, ~150 MB)")
+    dest = LLM / "multilingual-e5-small-q8_0.gguf"
+    if dest.exists():
+        print("  ya existe")
+        return
+    from huggingface_hub import hf_hub_download, list_repo_files
+    repo = "TwinSunsLLC/multilingual-e5-small-gguf"
+    files = [f for f in list_repo_files(repo) if f.lower().endswith(".gguf")]
+    pick = next((f for f in files if "q8_0" in f.lower()), None) or next(iter(files), None)
+    if not pick:
+        raise SystemExit(f"No encontre archivos .gguf en {repo}. Descargue un GGUF de multilingual-e5-small y guardelo como {dest}")
+    path = hf_hub_download(repo, pick, local_dir=str(LLM / "_e5"))
+    Path(path).replace(dest)
+    print("  listo:", pick)
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--preciso", action="store_true", help="descarga tambien Qwen2.5-7B (modo Preciso)")
+    ap.add_argument("--chat", action="store_true", help="descarga tambien el modelo de embeddings del Asistente")
     a = ap.parse_args()
     MODELS.mkdir(exist_ok=True)
     LLM.mkdir(exist_ok=True)
@@ -96,4 +116,6 @@ if __name__ == "__main__":
     gguf("Qwen/Qwen2.5-3B-Instruct-GGUF", "qwen2.5-3b-instruct-q4_k_m.gguf", "[4/4] IA local rapida (Qwen2.5-3B, ~2 GB)")
     if a.preciso:
         gguf("bartowski/Qwen2.5-7B-Instruct-GGUF", "Qwen2.5-7B-Instruct-Q4_K_M.gguf", "[+] IA local precisa (Qwen2.5-7B, ~4.5 GB)")
+    if a.chat:
+        embeddings()
     print("\nModelos listos. Ya puede ejecutar Iniciar_Auditoria.bat")

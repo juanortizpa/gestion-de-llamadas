@@ -109,6 +109,19 @@ Los datos (audios, transcripciones, resultados) se guardan en `data/`, que **no*
 .venv\Scripts\python.exe -m llamadas resolve --mode rapido   # IA local sobre criterios pendientes
 ```
 
+
+### Asistente de consulta (opcional)
+
+Pestaña **Asistente**: pregunta por conteos, rankings y listas (se calculan sin IA) o por lo que se dijo en las llamadas (busca fragmentos y los resume con la IA local, con fuentes). Sin configurar nada funciona buscando por palabras; para búsqueda semántica descargue el modelo de embeddings (~150 MB) y reindexe:
+
+```powershell
+.venv\Scripts\python.exe scripts\descargar_modelos.py --chat
+.venv\Scripts\python.exe -m llamadas index          # actualiza el índice (también se hace solo al preguntar)
+.venv\Scripts\python.exe -m llamadas chat "¿Qué asesor falla más la despedida?" --debug
+```
+
+Detalle y límites (aún sin probar con datos reales) en [CONTEXT.md §16.12](CONTEXT.md).
+
 ## Configuración
 
 Todo en `config/`:
