@@ -36,16 +36,29 @@ function chatScroll() { const l = $("#chatLog"); l.scrollTop = l.scrollHeight; }
 function addMsg(role) {
   const m = el("div", "msg " + role), b = el("div", "bubble"); m.append(b); $("#chatLog").append(m); chatScroll(); return { m, b };
 }
+/* IA que responde las preguntas abiertas: "local" o "externa" (Groq/Gemini). Es una preferencia de la pantalla, no un dato personal. */
+function chatEngine() {
+  let v = null; try { v = localStorage.getItem("chatEngine"); } catch (e) { /* sin almacenamiento: se usa el predeterminado */ }
+  return v === "local" || v === "externa" ? v : (ST.default_engine || "local");
+}
+function renderEngineSeg() {
+  const ext = ST.external || {};
+  segment($("#chatEngineSeg"), [["local", "IA local"], ["externa", ext.available ? ext.label : "IA externa"]], chatEngine(), v => {
+    try { localStorage.setItem("chatEngine", v); } catch (e) { /* ignorar */ }
+    renderEngineSeg(); refreshChatStatus();
+  });
+}
 async function refreshChatStatus() {
   try {
-    const s = await api("/api/chat/status"), bits = [];
+    const eng = chatEngine(), s = await api("/api/chat/status?engine=" + eng), bits = [];
     bits.push(s.indexing?.running ? `Indexando ${s.indexing.done} de ${s.indexing.total}…` : `${s.calls} llamadas indexadas`);
     bits.push(s.vectors_enabled ? "búsqueda semántica activa" : "búsqueda por palabras (sin modelo de embeddings)");
-    bits.push(s.busy_batch ? "IA ocupada con un análisis" : s.llm_available ? "IA lista" : "sin IA (solo fragmentos)");
+    bits.push(s.busy_batch ? "IA ocupada con un análisis" : s.llm_available ? `IA ${eng} lista` : eng === "externa" ? "IA externa sin clave (Instalar.bat)" : "sin IA local (solo fragmentos)");
     $("#chatStatus").textContent = bits.join(" · ");
   } catch (e) { $("#chatStatus").textContent = ""; }
 }
 function initChat() {
+  renderEngineSeg();
   refreshChatStatus();
   if (CHAT.ready) { $("#chatInput").focus(); return; }
   CHAT.ready = true;
@@ -76,7 +89,7 @@ async function sendChat(q) {
   CHAT.ctl = new AbortController();
   try {
     const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, signal: CHAT.ctl.signal,
-      body: JSON.stringify({ question: q, ctx: CHAT.ctx, history: CHAT.history.slice(-2) }) });
+      body: JSON.stringify({ question: q, ctx: CHAT.ctx, history: CHAT.history.slice(-2), engine: chatEngine() }) });
     if (!r.ok || !r.body) throw new Error("el asistente no respondió (" + r.status + ")");
     const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "";
     for (;;) {
@@ -101,6 +114,7 @@ async function sendChat(q) {
           if (st.fragments) bits.push(st.fragments + " fragmentos");
           if (st.cached) bits.push("de memoria");
           if (st.degraded) bits.push("IA no disponible");
+          else if (st.fragments) bits.push("IA " + chatEngine());
           if (bits.length) m.append(el("p", "stats", bits.join(" · ")));
           CHAT.history.push({ q, a: raw.slice(0, 400) }); if (CHAT.history.length > 6) CHAT.history.shift();
         }

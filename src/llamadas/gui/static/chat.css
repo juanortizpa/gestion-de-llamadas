@@ -2,6 +2,7 @@
 .chat-card{display:flex;flex-direction:column;min-height:calc(100vh - 200px)}
 .chat-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .chat-head h2{margin:0 0 4px}.chat-head p{margin:0;color:var(--mut);font-size:.92rem}
+.chat-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 .chat-status{font-size:.8rem;color:var(--mut);text-align:right;max-width:46ch}
 .chat-log{flex:1;overflow-y:auto;margin:16px -6px 8px;padding:0 6px;display:flex;flex-direction:column;gap:14px;min-height:260px;max-height:calc(100vh - 360px)}
 .msg{display:flex;flex-direction:column;gap:6px;max-width:min(860px,94%)}
@@ -26,4 +27,4 @@
 .chat-form{display:flex;gap:10px;align-items:flex-end;margin-top:8px}
 .chat-form textarea{flex:1;resize:none;border:var(--border);background:var(--surface-2);color:var(--ink);border-radius:var(--r-sm);padding:11px 14px;font:inherit;line-height:1.4;max-height:140px}
 .chat-form textarea:focus{outline:2px solid var(--pri);outline-offset:1px}
-@media (max-width:700px){.chat-status{text-align:left}.msg{max-width:100%}}
+@media (max-width:700px){.chat-side{align-items:flex-start}.chat-status{text-align:left}.msg{max-width:100%}}

@@ -14,6 +14,7 @@ dependencies = [
   "rapidfuzz>=3",
   "psutil",
   "openpyxl",
+  "sqlite-vec",
 ]
 
 [project.optional-dependencies]

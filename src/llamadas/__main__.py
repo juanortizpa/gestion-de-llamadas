@@ -144,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
         from .audit import save_audit
         from .auditor import classify_completion, pending_items, resolve_with_llm
         from .config import load_settings
-        from .llm import LlamaServer
+        from .llm import make_llm
 
         s = load_settings()
         todo = []
@@ -153,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
             if not au.get("synthetic") and (pending_items(au) or ("completion" not in au and au.get("criteria"))):
                 todo.append((f, au))
         print(f"{len(todo)} auditorias por resolver (criterios pendientes o cierre sin clasificar)")
-        with LlamaServer(s, args.mode) as srv:
+        with make_llm(s, args.mode) as srv:
             for f, au in todo:
                 cid = au["call"]["call_id"]
                 tr = json.loads((s.data_dir / "results" / f"{cid}.transcript.json").read_text(encoding="utf-8"))

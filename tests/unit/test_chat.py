@@ -241,7 +241,7 @@ def test_eliminar_llamada_borra_fragmentos_vectores_y_cache(world):
     st = eng.store.stats()
     with eng.store.conn() as c:
         assert c.execute("SELECT COUNT(*) FROM chunks WHERE call_id='1003'").fetchone()[0] == 0
-        assert c.execute("SELECT COUNT(*) FROM vecs").fetchone()[0] == st["vectors"] == st["chunks"]
+        assert c.execute("SELECT COUNT(*) FROM vec_chunks").fetchone()[0] == st["vectors"] == st["chunks"]
         assert c.execute("SELECT COUNT(*) FROM fts").fetchone()[0] == st["chunks"]
 
 
@@ -444,3 +444,23 @@ def test_cortar_el_flujo_libera_el_candado_de_la_ia(world):
     gen.close()                                   # el usuario pulso «Detener»
     assert eng.gen_lock.acquire(blocking=False)   # no quedo bloqueado para la siguiente pregunta
     eng.gen_lock.release()
+
+
+# ---------------------------------------------------------------- base vectorial (sqlite-vec)
+def test_base_vectorial_knn_y_filtro_por_llamada(tmp_path):
+    from llamadas.chat.store import Store
+    st = Store(path=tmp_path / "index.db")
+    e = lambda *v: np.asarray(v, dtype=np.float32) / np.linalg.norm(v)
+    ch = lambda h: {"kind": "ventana", "ctx": "", "body": h, "hash": h}
+    st.replace_call({"call_id": "A"}, [ch("a1"), ch("a2")], {"a1": e(1, 0, 0), "a2": e(0, 1, 0)}, lambda c: c["body"])
+    st.replace_call({"call_id": "B"}, [ch("b1")], {"b1": e(0.9, 0.1, 0)}, lambda c: c["body"])
+    assert st.stats()["vectors"] == 3
+    ids = {r["body"]: r["id"] for r in st.chunks_by_ids([1, 2, 3]).values()}
+    top = st.dense(e(1, 0, 0), None, 2)
+    assert top[0][0] == ids["a1"] and top[0][1] > 0.99          # coseno ~1 con el mismo vector
+    assert [i for i, _ in top][1] == ids["b1"]                  # el siguiente mas parecido
+    solo_b = st.dense(e(1, 0, 0), {"B"}, 2)
+    assert [i for i, _ in solo_b] == [ids["b1"]]                # el filtro excluye la llamada A
+    assert st.dense(np.ones(7, np.float32), None, 2) == []      # dimension distinta: no se mezcla
+    st.delete_call("A")
+    assert st.stats()["vectors"] == 1

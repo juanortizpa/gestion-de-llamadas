@@ -19,7 +19,7 @@ from typing import Callable, Iterator
 from rapidfuzz import fuzz
 
 from ..config import Settings, load_settings
-from ..llm import LlamaServer
+from ..llm import make_llm
 from ..textutil import normalize
 from . import analytics, retrieve, router
 from .chunks import mmss
@@ -38,10 +38,13 @@ KIND_ES = {"resumen": "resumen", "criterio": "criterio", "ventana": "transcripci
 
 
 class Generator:
-    """LLM local del chat: se enciende al primer uso y se apaga solo tras un rato sin uso (libera 2-7 GB de RAM)."""
+    """LLM del chat. Local: se enciende al primer uso y se apaga solo tras un rato sin uso (libera 2-7 GB de RAM).
+    Externo (Groq/Gemini): no consume RAM ni CPU de este equipo, asi que tampoco espera a que termine un lote de analisis."""
 
-    def __init__(self, settings: Settings, server=None):
-        self.server = server or LlamaServer(settings, mode=settings["chat"]["mode"])
+    def __init__(self, settings: Settings, server=None, engine: str | None = None):
+        self.server = server or make_llm(settings, settings["chat"]["mode"], engine)
+        self.remote = getattr(self.server, "provider", None) is not None
+        self.label = "externa" if self.remote else "local"
         self._last = 0.0
 
     def available(self) -> bool:
@@ -69,6 +72,7 @@ class ChatEngine:
         self.store = store or Store(self.s)
         self.embedder = LlamaEmbedder(self.s) if embedder == "auto" else embedder
         self.gen = generator or Generator(self.s)
+        self._gens: dict[str, Generator] = {}      # "local" / "externa", creados al primer uso
         self.busy = busy
         self.today = today
         self.indexer = Indexer(self.s, self.store, self.embedder, include_synthetic)
@@ -88,7 +92,8 @@ class ChatEngine:
         def loop():
             while True:
                 time.sleep(30)
-                self.gen.reap(idle)
+                for g in (self.gen, *self._gens.values()):
+                    g.reap(idle)
                 if self.embedder is not None:
                     self.embedder.reap(idle)
         self._reaper = threading.Thread(target=loop, daemon=True)
@@ -114,17 +119,28 @@ class ChatEngine:
         self.store.purge_cache()
         self.cache.clear()
 
-    def status(self) -> dict:
+    def generator(self, engine: str | None = None) -> Generator:
+        """IA que responde: "local" | "externa" a pedido del usuario; sin pedido, la configurada (.env)."""
+        if engine not in ("local", "externa"):
+            return self.gen
+        if engine not in self._gens:
+            self._gens[engine] = Generator(self.s, engine=engine)
+        return self._gens[engine]
+
+    def status(self, engine: str | None = None) -> dict:
         st = self.store.stats()
         emb = self.embedder is not None and self.embedder.available()
-        return {**st, "indexing": dict(self.indexer.progress), "vectors_enabled": emb, "llm_available": self.gen.available(),
-                "busy_batch": bool(self.busy())}
+        gen = self.generator(engine)
+        return {**st, "indexing": dict(self.indexer.progress), "vectors_enabled": emb, "llm_available": gen.available(),
+                "busy_batch": bool(self.busy()) and not gen.remote, "engine": gen.label,
+                "model": getattr(gen.server, "model_id", None) or getattr(getattr(gen.server, "model", None), "name", None)}
 
     # ------------------------------------------------------------------ pregunta
-    def ask(self, question: str, ctx: dict | None = None, history: list[dict] | None = None, debug: bool = False) -> dict:
+    def ask(self, question: str, ctx: dict | None = None, history: list[dict] | None = None, debug: bool = False,
+            engine: str | None = None) -> dict:
         """Version no incremental (CLI y pruebas): junta los eventos del flujo en una sola respuesta."""
         out = {"answer": "", "sources": [], "warnings": [], "route": "", "ctx": {}, "stats": {}, "filters": []}
-        for ev in self.ask_stream(question, ctx, history, debug):
+        for ev in self.ask_stream(question, ctx, history, debug, engine):
             t = ev["type"]
             if t == "token":
                 out["answer"] += ev["text"]
@@ -140,8 +156,10 @@ class ChatEngine:
                 out["error"] = ev["message"]
         return out
 
-    def ask_stream(self, question: str, ctx: dict | None = None, history: list[dict] | None = None, debug: bool = False) -> Iterator[dict]:
+    def ask_stream(self, question: str, ctx: dict | None = None, history: list[dict] | None = None, debug: bool = False,
+                   engine: str | None = None) -> Iterator[dict]:
         t0 = time.time()
+        gen = self.generator(engine)
         question = (question or "").strip()[:MAX_QUESTION]
         if not question:
             yield {"type": "error", "message": "Escriba una pregunta."}
@@ -207,22 +225,29 @@ class ChatEngine:
         stats = {"prompt_tokens_est": retrieve.est_tokens(SYSTEM + user), "fragments": len(hits), "retrieval": dbg,
                  "vectors": embedder is not None}
 
-        reason = self._llm_unavailable()
+        reason = self._llm_unavailable(gen)
         if reason is None and not self.gen_lock.acquire(blocking=False):
             reason = "ya hay otra consulta en curso"
+        text = ""
         if reason is None:
             try:
-                self.gen.start()
-                text = ""
-                for tok in self.gen.stream(SYSTEM, user, self.cfg["max_answer_tokens"]):
+                gen.start()
+                for tok in gen.stream(SYSTEM, user, self.cfg["max_answer_tokens"]):
                     text += tok
                     yield {"type": "token", "text": tok}
+                if not text.strip():
+                    raise RuntimeError("la IA no devolvió texto")
             except Exception as e:                     # la IA fallo a mitad: se degrada a fragmentos
-                reason = f"la IA local falló ({e})"
+                reason = f"la IA {gen.label} falló ({e})"
+                if text.strip():                       # ya salio texto parcial: se avisa al final, no se mezcla con los fragmentos
+                    yield {"type": "final_text", "text": text + f"\n\n_(La respuesta se cortó: {reason}.)_"}
+                    yield {"type": "sources", "sources": sources}
+                    yield {"type": "done", "ctx": base_ctx, "stats": {**stats, "ms": int((time.time() - t0) * 1000), "degraded": reason}, "warnings": []}
+                    return
             finally:
                 self.gen_lock.release()
         if reason is not None:
-            note = f"_La IA local no está disponible ({reason}). Estos son los fragmentos más relevantes:_\n\n"
+            note = f"_La IA {gen.label} no está disponible ({reason}). Estos son los fragmentos más relevantes:_\n\n"
             body = "\n\n".join(f"**[{s['n']}]** {s['ctx']}\n> {s['snippet']}" for s in sources)
             yield {"type": "token", "text": note + body}
             yield {"type": "sources", "sources": sources}
@@ -240,11 +265,12 @@ class ChatEngine:
         yield {"type": "done", "ctx": base_ctx, "stats": stats, "warnings": warnings}
 
     # ------------------------------------------------------------------ piezas
-    def _llm_unavailable(self) -> str | None:
-        if self.busy():
+    def _llm_unavailable(self, gen: Generator | None = None) -> str | None:
+        gen = gen or self.gen
+        if self.busy() and not gen.remote:          # la IA externa no usa la CPU de este equipo: no necesita esperar
             return "hay un análisis de llamadas en curso; la CPU se reserva para él"
-        if not self.gen.available():
-            return "el modelo no está instalado"
+        if not gen.available():
+            return "falta la clave de la IA externa (Instalar.bat)" if gen.remote else "el modelo no está instalado"
         return None
 
     def _remember(self, key: tuple, answer: str, sources: list, warnings: list) -> None:

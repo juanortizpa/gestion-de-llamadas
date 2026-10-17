@@ -40,7 +40,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
 <div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
 
 <header class="top">
-  <div class="brand"><span class="logo"><svg class="i"><use href="#i-headset"/></svg></span><img class="brand-logo" src="/static/logo-angiografia.png" alt="Angiografía de Occidente" width="110" height="44" onerror="this.remove();document.documentElement.classList.add('no-logo')"><div><h1>Auditoría de Llamadas</h1><p>Todo se procesa en este computador. Ningún audio sale de aquí.</p></div></div>
+  <div class="brand"><span class="logo"><svg class="i"><use href="#i-headset"/></svg></span><img class="brand-logo" src="/static/logo-angiografia.png" alt="Angiografía de Occidente" width="110" height="44" onerror="this.remove();document.documentElement.classList.add('no-logo')"><div><h1>Auditoría de Llamadas</h1><p>Los audios se procesan en este computador y no salen de aquí. Solo si elige IA externa se envían textos de las llamadas al proveedor.</p></div></div>
   <nav class="tabs" id="tabs">
     <span class="glider" id="glider"></span>
     <button class="tab active" data-view="cargar"><b>1</b> Cargar y analizar</button>
@@ -75,6 +75,8 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
           <span><b>Rápido</b><small>Menos de 1 min por llamada con la IA. Recomendado para empezar.</small></span></label>
         <label class="mode"><input type="radio" name="mode" value="preciso"><span class="mode-ic"><svg class="i"><use href="#i-target"/></svg></span>
           <span><b>Preciso</b><small>Unos 3 min por llamada con la IA. Más exacto, ideal para dejar corriendo.</small></span></label>
+        <label class="mode"><input type="radio" name="mode" value="externa"><span class="mode-ic"><svg class="i"><use href="#i-spark"/></svg></span>
+          <span><b>IA externa</b><small id="extModeSmall">Groq o Gemini en la nube: rápida y sin instalar modelos. Los textos de las llamadas salen del equipo.</small></span></label>
         <label class="mode"><input type="radio" name="mode" value="sin"><span class="mode-ic"><svg class="i"><use href="#i-rule"/></svg></span>
           <span><b>Solo reglas</b><small>Sin IA. Es lo más rápido; deja más criterios por revisar a mano.</small></span></label>
       </div>
@@ -166,8 +168,9 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
   <section id="view-asistente" class="view">
     <div class="card chat-card" style="--i:0">
       <div class="chat-head">
-        <div><h2>Asistente de consulta</h2><p>Pregunte por conteos, rankings y listas, o por lo que se dijo en las llamadas. Todo se calcula en este equipo.</p></div>
-        <div class="chat-status" id="chatStatus"></div>
+        <div><h2>Asistente de consulta</h2><p>Pregunte por conteos, rankings y listas, o por lo que se dijo en las llamadas. Los conteos y listas se calculan en este equipo; las preguntas abiertas usan la IA que elija aquí.</p></div>
+        <div class="chat-side"><div class="seg" id="chatEngineSeg" role="group" aria-label="IA del asistente"></div>
+          <div class="chat-status" id="chatStatus"></div></div>
       </div>
       <div class="chat-log" id="chatLog" aria-live="polite"></div>
       <div class="chat-suggest" id="chatSuggest"></div>

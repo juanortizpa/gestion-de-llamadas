@@ -2,12 +2,12 @@
 
   calls   una fila por llamada con los datos estructurados (para contar/filtrar sin IA)
   chunks  fragmentos de texto (resumen, criterios, ventanas de transcripcion, observaciones)
-  fts     FTS5 sobre los fragmentos (busqueda por palabras, BM25)
-  vecs    vectores float16 de los fragmentos (busqueda semantica; opcional)
-  embcache  vectores por hash de contenido: reindexar no vuelve a calcular lo que no cambio
+  fts         FTS5 sobre los fragmentos (busqueda por palabras, BM25)
+  vec_chunks  base vectorial de los fragmentos (extension sqlite-vec, vec0, distancia coseno).
+              Se crea al primer vector, cuando se conoce la dimension del modelo.
+  embcache    vectores por hash de contenido: reindexar no vuelve a calcular lo que no cambio
 
-Los vectores se buscan por fuerza bruta en numpy sobre una matriz en memoria. Es suficiente para decenas de miles de
-fragmentos; con cientos de miles hay que filtrar por fecha o pasar a un indice aproximado (sqlite-vec).
+La busqueda vectorial es KNN dentro del mismo archivo SQLite: no hay servidor aparte ni matriz en memoria.
 Todo vive en data/ (fuera de git) y se borra junto con la llamada (privacidad).
 """
 from __future__ import annotations
@@ -19,6 +19,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
+import sqlite_vec
 
 from ..config import Settings, load_settings
 
@@ -33,9 +34,9 @@ CREATE TABLE IF NOT EXISTS chunks(
   turn0 INTEGER, turn1 INTEGER, ctx TEXT, body TEXT, hash TEXT);
 CREATE INDEX IF NOT EXISTS chunks_call ON chunks(call_id);
 CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(text, tokenize='unicode61 remove_diacritics 2');
-CREATE TABLE IF NOT EXISTS vecs(chunk_id INTEGER PRIMARY KEY, vec BLOB);
 CREATE TABLE IF NOT EXISTS embcache(hash TEXT PRIMARY KEY, vec BLOB);
 """
+VEC_TABLE = "vec_chunks"
 CALL_COLS = ["call_id", "sig", "date", "time", "agent", "auditor", "type", "queue", "duration_s", "percent", "points", "estado",
              "estado_ui", "e1", "discarded", "reviewed", "pending", "criteria", "n_holds", "longest_hold", "analyzed_at"]
 
@@ -46,21 +47,54 @@ class Store:
         self.path = path or (s.data_dir / "chat" / "index.db")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
-        self._mat: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None   # (ids, call_idx, matriz) en memoria
-        self._call_names: list[str] = []
         with self.conn() as c:
             c.executescript(SCHEMA)
+            self._migrate_legacy_vectors(c)
 
     @contextmanager
     def conn(self):
         c = sqlite3.connect(self.path, timeout=30)
         c.row_factory = sqlite3.Row
+        c.enable_load_extension(True)
+        sqlite_vec.load(c)
+        c.enable_load_extension(False)
         c.execute("PRAGMA journal_mode=WAL")
         try:
             yield c
             c.commit()
         finally:
             c.close()
+
+    # ---------------------------------------------------------------- base vectorial (sqlite-vec)
+    @staticmethod
+    def _has_vec(c: sqlite3.Connection) -> bool:
+        return c.execute("SELECT 1 FROM sqlite_master WHERE name=?", (VEC_TABLE,)).fetchone() is not None
+
+    @staticmethod
+    def _vec_dim(c: sqlite3.Connection) -> int:
+        if not Store._has_vec(c):
+            return 0
+        return int(c.execute("SELECT v FROM meta WHERE k='vec_dim'").fetchone()["v"])
+
+    @staticmethod
+    def _ensure_vec(c: sqlite3.Connection, dim: int) -> None:
+        if not Store._has_vec(c):
+            c.execute(f"CREATE VIRTUAL TABLE {VEC_TABLE} USING vec0(chunk_id INTEGER PRIMARY KEY, embedding float[{dim}] distance_metric=cosine)")
+            c.execute("INSERT INTO meta(k,v) VALUES('vec_dim', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", (str(dim),))
+
+    def _migrate_legacy_vectors(self, c: sqlite3.Connection) -> None:
+        """Indices anteriores guardaban los vectores en una tabla `vecs` (float16). Se pasan a vec_chunks una sola vez."""
+        if c.execute("SELECT 1 FROM sqlite_master WHERE name='vecs'").fetchone() is None:
+            return
+        rows = c.execute("SELECT chunk_id, vec FROM vecs").fetchall()
+        if rows:
+            dim = len(rows[0]["vec"]) // 2
+            self._ensure_vec(c, dim)
+            for r in rows:
+                v = np.frombuffer(r["vec"], dtype=np.float16).astype(np.float32)
+                if len(v) == dim:
+                    c.execute(f"INSERT OR REPLACE INTO {VEC_TABLE}(chunk_id, embedding) VALUES(?,?)", (r["chunk_id"], v.tobytes()))
+        c.execute("DROP TABLE vecs")
 
     # ---------------------------------------------------------------- meta
     def get_meta(self, key: str, default: str = "") -> str:
@@ -78,7 +112,6 @@ class Store:
 
     def bump(self) -> None:
         self.set_meta("version", str(int(self.version()) + 1))
-        self._mat = None
 
     # ---------------------------------------------------------------- escritura
     def signatures(self) -> dict[str, str]:
@@ -108,10 +141,12 @@ class Store:
                 cid = cur.lastrowid
                 c.execute("INSERT INTO fts(rowid, text) VALUES(?,?)", (cid, fts_text(ch)))
                 if vectors is not None and ch["hash"] in vectors:
+                    vec = np.asarray(vectors[ch["hash"]], dtype=np.float32)
+                    self._ensure_vec(c, len(vec))
+                    if len(vec) == self._vec_dim(c):      # un modelo de otra dimension no se mezcla
+                        c.execute(f"INSERT INTO {VEC_TABLE}(chunk_id, embedding) VALUES(?,?)", (cid, vec.tobytes()))
                     blob = np.asarray(vectors[ch["hash"]], dtype=np.float16).tobytes()
-                    c.execute("INSERT INTO vecs(chunk_id, vec) VALUES(?,?)", (cid, blob))
                     c.execute("INSERT OR REPLACE INTO embcache(hash, vec) VALUES(?,?)", (ch["hash"], blob))
-        self._mat = None
 
     @staticmethod
     def _delete(c: sqlite3.Connection, call_id: str) -> None:
@@ -119,7 +154,8 @@ class Store:
         for i in range(0, len(ids), 500):
             q = ",".join("?" * len(ids[i:i + 500]))
             c.execute(f"DELETE FROM fts WHERE rowid IN ({q})", ids[i:i + 500])
-            c.execute(f"DELETE FROM vecs WHERE chunk_id IN ({q})", ids[i:i + 500])
+            if Store._has_vec(c):
+                c.execute(f"DELETE FROM {VEC_TABLE} WHERE chunk_id IN ({q})", ids[i:i + 500])
         c.execute("DELETE FROM chunks WHERE call_id=?", (call_id,))
         c.execute("DELETE FROM calls WHERE call_id=?", (call_id,))
 
@@ -128,7 +164,6 @@ class Store:
         (embcache se limpia aparte: guarda vectores por contenido, no por llamada; ver purge_cache)."""
         with self.lock, self.conn() as c:
             self._delete(c, call_id)
-        self._mat = None
         self.bump()
 
     def purge_cache(self) -> int:
@@ -139,9 +174,11 @@ class Store:
 
     def clear(self) -> None:
         with self.lock, self.conn() as c:
-            for t in ("calls", "chunks", "fts", "vecs", "embcache"):
+            for t in ("calls", "chunks", "fts", "embcache"):
                 c.execute(f"DELETE FROM {t}")
-        self._mat = None
+            if self._has_vec(c):
+                c.execute(f"DROP TABLE {VEC_TABLE}")          # la dimension la fija el proximo modelo que indexe
+                c.execute("DELETE FROM meta WHERE k='vec_dim'")
         self.bump()
 
     # ---------------------------------------------------------------- lectura
@@ -157,7 +194,7 @@ class Store:
         with self.conn() as c:
             return {"calls": c.execute("SELECT COUNT(*) FROM calls").fetchone()[0],
                     "chunks": c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0],
-                    "vectors": c.execute("SELECT COUNT(*) FROM vecs").fetchone()[0]}
+                    "vectors": c.execute(f"SELECT COUNT(*) FROM {VEC_TABLE}").fetchone()[0] if self._has_vec(c) else 0}
 
     def chunks_by_ids(self, ids: list[int]) -> dict[int, dict]:
         out: dict[int, dict] = {}
@@ -189,36 +226,16 @@ class Store:
         out = [(r["id"], -r["s"]) for r in rows if allowed is None or r["call_id"] in allowed]
         return out[:limit]
 
-    def _matrix(self):
-        with self.lock:
-            if self._mat is None:
-                with self.conn() as c:
-                    rows = c.execute("SELECT v.chunk_id AS id, c.call_id AS call_id, v.vec AS vec FROM vecs v JOIN chunks c ON c.id=v.chunk_id").fetchall()
-                if not rows:
-                    self._mat = (np.zeros(0, np.int64), np.zeros(0, np.int64), np.zeros((0, 1), np.float16))
-                    self._call_names = []
-                else:
-                    names: dict[str, int] = {}
-                    ids = np.array([r["id"] for r in rows], dtype=np.int64)
-                    cidx = np.array([names.setdefault(r["call_id"], len(names)) for r in rows], dtype=np.int64)
-                    mat = np.stack([np.frombuffer(r["vec"], dtype=np.float16) for r in rows])
-                    self._mat, self._call_names = (ids, cidx, mat), list(names)
-            return self._mat
-
     def dense(self, qvec: np.ndarray, allowed: set[str] | None, limit: int) -> list[tuple[int, float]]:
-        """(chunk_id, coseno) mejores primero. Los vectores se guardan normalizados: producto punto = coseno."""
-        ids, cidx, mat = self._matrix()
-        if len(ids) == 0:
-            return []
-        if mat.shape[1] != len(qvec):     # modelo de embeddings distinto al indexado: no se mezcla
-            return []
-        mask = np.ones(len(ids), bool)
-        if allowed is not None:
-            ok = np.array([n in allowed for n in self._call_names], dtype=bool)
-            mask = ok[cidx]
-        if not mask.any():
-            return []
-        sims = mat[mask].astype(np.float32) @ qvec.astype(np.float32)
-        sub = ids[mask]
-        top = np.argsort(-sims)[:limit]
-        return [(int(sub[i]), float(sims[i])) for i in top]
+        """(chunk_id, coseno) mejores primero, por KNN en sqlite-vec. `allowed` filtra las llamadas
+        despues del KNN: se piden mas vecinos (x4) para que el filtro no deje la lista vacia."""
+        qv = np.asarray(qvec, dtype=np.float32)
+        with self.conn() as c:
+            if not self._has_vec(c) or self._vec_dim(c) != len(qv):   # sin vectores o modelo distinto: no se mezcla
+                return []
+            k = limit * 4 if allowed is not None else limit
+            rows = c.execute(f"SELECT v.chunk_id AS id, v.distance AS d, c.call_id AS call_id FROM {VEC_TABLE} v "
+                             f"JOIN chunks c ON c.id=v.chunk_id WHERE v.embedding MATCH ? AND k = ? ORDER BY v.distance",
+                             (qv.tobytes(), k)).fetchall()
+        out = [(r["id"], 1.0 - float(r["d"])) for r in rows if allowed is None or r["call_id"] in allowed]
+        return out[:limit]

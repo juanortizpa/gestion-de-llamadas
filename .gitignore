@@ -23,3 +23,5 @@ videos/**/snapshots/
 videos/**/.hyperframes/preview/
 *.log
 *.pyc
+
+.env

@@ -20,7 +20,7 @@ from ..complaints import (complaints_xlsx, delete_complaint, dismiss_suggestion,
 from ..config import ROOT, load_settings
 from ..export import collect, export_xlsx
 from ..jobs import AUDIO_EXT, JobManager, forget, incoming_dir, store_dir
-from ..llm import LlamaServer
+from ..llm import make_llm
 from ..review import CODES, final_view, load_review, save_review, ui_state
 
 STATIC = Path(__file__).parent / "static"
@@ -30,6 +30,31 @@ ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
 NL = bytes([10])        # separador de lineas del flujo NDJSON
 _CHAT = None
 _CHAT_LOCK = threading.Lock()
+
+
+def _engine_arg(v) -> str | None:
+    """Solo "local" o "externa"; cualquier otra cosa = el proveedor configurado en .env."""
+    return v if v in ("local", "externa") else None
+
+
+def _external_info() -> dict:
+    """Estado de la IA externa para la interfaz (nunca incluye la clave)."""
+    from ..llm import PROVIDERS, external_provider
+    p = external_provider(S)
+    if p is None:
+        return {"available": False, "provider": None, "label": "IA externa", "model": None}
+    return {"available": True, "provider": p, "label": PROVIDERS[p]["name"], "model": S["llm"]["remote"][PROVIDERS[p]["model"]]}
+
+
+def _default_engine(local_ok: dict) -> str:
+    """Que IA se preselecciona: la externa si el instalador la eligio o si no hay modelo local pero si clave."""
+    from ..llm import active_provider
+    ext = _external_info()["available"]
+    if active_provider(S) != "local" and ext:
+        return "externa"
+    if not any(local_ok.values()) and ext:
+        return "externa"
+    return "local"
 
 
 def chat_engine():
@@ -144,8 +169,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._file(f)
             return self._json({"error": "no"}, 404)
         if p == "/api/state":
-            srv = {m: LlamaServer(S, m).available() for m in ("rapido", "preciso")}
-            return self._json({"job": JOBS.status(), "llm": srv, "mode": S["llm"]["mode"],
+            srv = {m: make_llm(S, m, "local").available() for m in ("rapido", "preciso")}
+            return self._json({"job": JOBS.status(), "llm": srv, "mode": S["llm"]["mode"], "external": _external_info(),
+                               "default_engine": _default_engine(srv),
                                "pending_files": sorted(f.name for f in incoming_dir(S).iterdir() if f.suffix.lower() in AUDIO_EXT),
                                "pass_percent": S["review"]["pass_percent"], "guide": GUIDE})
         if p == "/api/calls":
@@ -174,7 +200,7 @@ class Handler(BaseHTTPRequestHandler):
             complaints_xlsx(tmp, S)
             return self._file(tmp, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Quejas_Usuarios.xlsx")
         if p == "/api/chat/status":
-            return self._json(chat_engine().status())
+            return self._json(chat_engine().status(_engine_arg(parse_qs(u.query).get("engine", [None])[0])))
         if p == "/api/export":
             q = parse_qs(u.query)
             tmp = Path(tempfile.gettempdir()) / "Matriz_Auditoria_Llamadas.xlsx"
@@ -197,7 +223,7 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/process":
             d = json.loads(self._body() or b"{}")
             mode = d.get("mode") if d.get("mode") in ("rapido", "preciso") else S["llm"]["mode"]
-            ok = JOBS.start(bool(d.get("use_llm", True)), mode)
+            ok = JOBS.start(bool(d.get("use_llm", True)), mode, _engine_arg(d.get("engine")))
             return self._json({"ok": ok, "error": None if ok else "Ya hay un análisis en curso"})
         if p == "/api/cancel":
             JOBS.cancel()
@@ -247,7 +273,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Accel-Buffering", "no")
         self.end_headers()
-        gen = chat_engine().ask_stream(str(d.get("question", "")), ctx, hist)
+        gen = chat_engine().ask_stream(str(d.get("question", "")), ctx, hist, engine=_engine_arg(d.get("engine")))
         try:
             for ev in gen:
                 self.wfile.write(json.dumps(ev, ensure_ascii=False).encode("utf-8") + NL)

@@ -58,6 +58,15 @@ py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
+### 3b. Atajo: menú de instalación (pasos 3 a 5 en uno)
+
+Doble clic en **`Instalar.bat`** (crea el entorno si falta) y elija:
+
+1. **Local**: descarga los modelos (~3 GB). Sin internet al usar; los audios y textos no salen del equipo. Pensado para empresas que ya tienen servidores o recursos: no hay costo por uso.
+2. **APIs externas** (Groq Llama 3.3 70B o Gemini 1.5 Flash): no descarga modelos pesados, pero **los textos de las llamadas se envían al proveedor**. Pide la clave, la guarda en `.env` (local, no se versiona) y prueba la conexión.
+
+Se puede repetir para cambiar de modo. Variables en [.env.example](.env.example). La base del Asistente es SQLite con `sqlite-vec` (búsqueda vectorial en el mismo archivo).
+
 ### 4. Descargar los modelos de IA (~3 GB, necesita internet)
 
 Los modelos no están en git por su tamaño.

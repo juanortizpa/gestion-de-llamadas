@@ -1,4 +1,4 @@
-# Configuracion del pipeline. Todo local; ninguna API externa.
+# Configuracion del pipeline. Por defecto todo local; una API externa solo si el instalador (.env) la elige.
 [paths]
 data_dir = "data"                 # relativo a la raiz del proyecto
 models_dir = "models"
@@ -55,6 +55,8 @@ min_role_confidence = 0.3
 path = "Base_maestra_preparacion_examenes.xlsx"   # Excel del usuario: preparaciones, documentos y sedes
 
 [llm]
+# local (llama.cpp, sin internet) | groq | gemini. LLM_PROVIDER en .env manda sobre este valor (lo escribe Instalar.bat)
+provider = "local"
 # "rapido" = Qwen2.5-3B (~1 min/llamada); "preciso" = Qwen2.5-7B (~3 min/llamada, mas citas verificables)
 mode = "rapido"
 models = { rapido = "llm/qwen2.5-3b-instruct-q4_k_m.gguf", preciso = "llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf" }
@@ -64,6 +66,12 @@ ctx = 8192
 threads = 4
 max_tokens = 900
 quote_min_ratio = 88              # una cita del LLM solo vale si aparece (aprox.) en la transcripcion
+
+[llm.remote]
+# Solo se usan si el proveedor es groq o gemini (las claves van en .env, nunca aqui)
+groq_model = "openai/gpt-oss-120b"   # llama-3.3-70b-versatile ya no esta en el catalogo de Groq (404, 2026-10-17)
+gemini_model = "gemini-1.5-flash"
+timeout_s = 60                    # limite por peticion a la API externa
 
 [review]
 pass_percent = 80                 # < 80 % = No aprobado (dato del usuario)

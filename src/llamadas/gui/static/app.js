@@ -70,12 +70,14 @@ function renderConfig() {
   segment($("#themeSeg"), [["light", "Claro"], ["dark", "Oscuro"], ["auto", "Automático"]], PREFS.theme, v => setPref("theme", v));
   segment($("#motionSeg"), [["completa", "Completas"], ["suave", "Suaves"], ["off", "Ninguna"]], PREFS.motion, v => setPref("motion", v));
   segment($("#sizeSeg"), [["normal", "Normal"], ["grande", "Grande"]], PREFS.size, v => setPref("size", v));
-  segment($("#defModeSeg"), [["rapido", "Rápido"], ["preciso", "Preciso"], ["sin", "Solo reglas"]], PREFS.defMode, v => { setPref("defMode", v); pickMode(v); });
+  segment($("#defModeSeg"), [["rapido", "Rápido"], ["preciso", "Preciso"], ["externa", "IA externa"], ["sin", "Solo reglas"]], PREFS.defMode, v => { setPref("defMode", v); pickMode(v); });
   segment($("#afterSeg"), [["lista", "Volver a la lista"], ["siguiente", "Abrir la siguiente por revisar"]], PREFS.after, v => setPref("after", v));
   const pa = $("#prefAuditor"); if (document.activeElement !== pa) pa.value = PREFS.auditor;
   const si = $("#sysInfo"); si.innerHTML = "";
   const llm = ST.llm || {};
+  const ext = ST.external || {};
   [["IA rápida (3B)", llm.rapido ? "Instalada" : "No instalada"], ["IA precisa (7B)", llm.preciso ? "Instalada" : "No instalada"],
+   ["IA externa", ext.available ? `${ext.label} · lista` : "Sin clave (ejecute Instalar.bat)"],
    ["Nota para aprobar", (ST.pass_percent ?? 80) + " %"], ["Error crítico", "Solo lo confirma una persona"]].forEach(([k, v]) => {
     const li = el("li"); li.append(el("span", "", k), el("b", "", v)); si.appendChild(li);
   });
@@ -170,7 +172,10 @@ async function upload(files) {
 $("#btnLimpiar").onclick = async () => { await api("/api/clear_incoming", { method: "POST" }); refreshState(); };
 $("#btnAnalizar").onclick = async () => {
   const mode = $('input[name=mode]:checked').value;
-  const r = await api("/api/process", { method: "POST", body: JSON.stringify({ use_llm: mode !== "sin", mode: mode === "sin" ? "rapido" : mode }) });
+  // "externa" usa Groq/Gemini; Rápido/Preciso piden la IA local aunque el instalador haya dejado una API como predeterminada
+  const body = mode === "sin" ? { use_llm: false, mode: "rapido" } : mode === "externa" ? { use_llm: true, mode: "rapido", engine: "externa" }
+    : { use_llm: true, mode, engine: "local" };
+  const r = await api("/api/process", { method: "POST", body: JSON.stringify(body) });
   if (!r.ok) toast(r.error);
   refreshState();
 };
@@ -184,9 +189,19 @@ async function refreshState() {
   $("#btnAnalizar").disabled = j.running || files.length === 0;
   $("#btnAnalizar").innerHTML = icon("play") + (files.length ? ` Analizar ${files.length} llamada${files.length > 1 ? "s" : ""}` : " Analizar llamadas");
   $("#btnLimpiar").hidden = j.running || files.length === 0;
-  const hint = [];
-  if (!ST.llm.rapido && !ST.llm.preciso) hint.push("La IA local no está instalada: use «Solo reglas».");
-  else if (!ST.llm[$('input[name=mode]:checked')?.value] && $('input[name=mode]:checked')?.value !== "sin") hint.push("Ese modelo de IA no está instalado en este equipo.");
+  const ext = ST.external || {}, localOk = ST.llm.rapido || ST.llm.preciso;
+  if (!refreshState.init) {      // una sola vez: si el instalador dejó la IA externa (o no hay modelo local pero sí clave), se preselecciona
+    refreshState.init = true;
+    if (ST.default_engine === "externa" && PREFS.defMode === "rapido") pickMode("externa");
+  }
+  $("#extModeSmall").textContent = ext.available ? `${ext.label} en la nube: rápida y sin instalar modelos. Los textos de las llamadas salen del equipo.`
+    : "Groq o Gemini en la nube. Aún sin clave: ejecute Instalar.bat y elija la opción 2.";
+  const m = $('input[name=mode]:checked')?.value, hint = [];
+  if (m === "externa") hint.push(ext.available ? `Se usará ${ext.label}; los textos de las llamadas se envían a ese proveedor.` : "Falta la clave de la IA externa: ejecute Instalar.bat y elija la opción 2.");
+  else if (m !== "sin") {
+    if (!localOk) hint.push(ext.available ? "La IA local no está instalada: use «IA externa» o «Solo reglas»." : "La IA local no está instalada: use «Solo reglas».");
+    else if (!ST.llm[m]) hint.push("Ese modelo de IA no está instalado en este equipo.");
+  }
   $("#modeHint").textContent = hint.join(" ");
   renderJob(j);
   clearTimeout(pollT);
