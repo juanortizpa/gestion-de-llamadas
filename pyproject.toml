@@ -15,6 +15,7 @@ dependencies = [
   "psutil",
   "openpyxl",
   "sqlite-vec",
+  "imageio-ffmpeg",
 ]
 
 [project.optional-dependencies]

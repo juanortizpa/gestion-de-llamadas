@@ -22,6 +22,19 @@ PROVIDERS = {
 }
 
 
+def find_llama_server(models_dir: Path, configured: str = "") -> Path:
+    """Ejecutable de llama.cpp en cualquier SO: el de settings.toml si existe; si no, el que haya bajo models/llm/llama.cpp
+    (llama-server.exe en Windows, llama-server en Linux/macOS; cada release lo deja en una carpeta distinta)."""
+    if configured and (models_dir / configured).exists():
+        return models_dir / configured
+    base = models_dir / "llm" / "llama.cpp"
+    for name in ("llama-server.exe", "llama-server"):
+        found = next((p for p in base.rglob(name) if p.is_file()), None) if base.exists() else None
+        if found:
+            return found
+    return models_dir / (configured or "llm/llama.cpp/llama-server")
+
+
 class LlamaServer:
     """Arranca/detiene llama-server bajo demanda y habla con el por HTTP local (127.0.0.1)."""
 
@@ -35,7 +48,7 @@ class LlamaServer:
         self.url = f"http://127.0.0.1:{self.port}"
         self.proc: subprocess.Popen | None = None
         self.model = model or self.s.models_dir / cfg["models"][self.mode]
-        self.exe = self.s.models_dir / cfg["server_exe"]
+        self.exe = find_llama_server(self.s.models_dir, cfg.get("server_exe", ""))
         self.ctx = ctx or cfg["ctx"]
         self.extra_args = list(extra_args)
 
@@ -56,10 +69,13 @@ class LlamaServer:
             raise RuntimeError(f"Modelo LLM no disponible: {self.model.name}")
         cfg = self.s["llm"]
         log = open(self.s.data_dir / f"llama_server_{self.port}.log", "ab") if (self.s.data_dir).exists() else subprocess.DEVNULL
+        env = dict(os.environ)
+        for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):        # Linux/macOS: las .so/.dylib de llama.cpp viven junto al ejecutable
+            env[var] = str(self.exe.parent) + os.pathsep + env.get(var, "")
         self.proc = subprocess.Popen(
             [str(self.exe), "-m", str(self.model), "-t", str(cfg["threads"]), "-c", str(self.ctx), "--port", str(self.port),
              "--host", "127.0.0.1", "--cache-prompt", *self.extra_args],
-            stdout=log, stderr=log, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            stdout=log, stderr=log, env=env, cwd=str(self.exe.parent), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         t0 = time.time()
         while time.time() - t0 < timeout_s:
             if self.healthy():

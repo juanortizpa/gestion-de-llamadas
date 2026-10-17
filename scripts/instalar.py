@@ -27,9 +27,10 @@ MENU = """
 ==========================================================
   1) LOCAL        Modelos en este equipo (~3 GB). Sin internet al usar,
                   sin costo por uso y los audios no salen de la empresa.
-  2) APIs EXTERNAS  Groq o Gemini. No descarga modelos pesados, pero los
-                  TEXTOS de las llamadas se envian al proveedor y se
-                  paga/limita segun su plan.
+  2) APIs EXTERNAS  Groq o Gemini. Solo baja los modelos de voz (~1,7 GB,
+                  la transcripcion siempre es local), pero los TEXTOS de
+                  las llamadas se envian al proveedor y se paga/limita
+                  segun su plan.
   3) Salir
 """
 
@@ -69,7 +70,7 @@ def install_local(preciso: bool | None = None, chat: bool | None = None) -> int:
         print("\nLa descarga fallo. Revise la conexion y vuelva a ejecutar la instalacion (lo ya descargado no se repite).")
         return rc
     upsert_env(ENV, {"LLM_PROVIDER": "local", "DATABASE_URL": DEFAULT_DB})
-    print("\nListo: modo LOCAL. Ejecute Iniciar_Auditoria.bat")
+    print("\nListo: modo LOCAL. Ejecute iniciar.py (o Iniciar.bat / run.sh)")
     return 0
 
 
@@ -84,7 +85,8 @@ def test_connection(provider: str) -> str | None:
         return str(e)
 
 
-def install_external(provider: str | None = None, key: str | None = None, probar: bool = True, confirmado: bool = False) -> int:
+def install_external(provider: str | None = None, key: str | None = None, probar: bool = True, confirmado: bool = False,
+                     descargar: bool = True) -> int:
     if provider is None:
         print("\n  a) Groq    - GPT-OSS 120B: muy rapido y barato; plan gratuito con limites de peticiones.")
         print("  b) Gemini  - Gemini 1.5 Flash: ventana de contexto grande; plan gratuito con limites.")
@@ -106,6 +108,12 @@ def install_external(provider: str | None = None, key: str | None = None, probar
         return 1
     upsert_env(ENV, {"LLM_PROVIDER": provider, KEYS[provider]: key, "DATABASE_URL": DEFAULT_DB})
     print(f"\nGuardado en .env: modo {NAMES[provider]}.")
+    if descargar:       # la transcripcion y la separacion de hablantes siguen siendo locales aunque la IA sea externa
+        print("\nDescargando los modelos de voz (~1,7 GB, necesita internet una sola vez)...")
+        rc = subprocess.call([sys.executable, str(ROOT / "scripts" / "descargar_modelos.py"), "--solo-voz"], cwd=ROOT)
+        if rc != 0:
+            print("\nLa descarga fallo. Revise la conexion y ejecute: python iniciar.py --instalar (lo ya descargado no se repite).")
+            return rc
     if probar:
         import os
         os.environ["LLM_PROVIDER"], os.environ[KEYS[provider]] = provider, key
@@ -114,7 +122,7 @@ def install_external(provider: str | None = None, key: str | None = None, probar
         print("Conexion correcta." if err is None else f"No se pudo verificar: {err}\nRevise la clave y repita la instalacion.")
         if err is not None:
             return 2
-    print("\nListo. Ejecute Iniciar_Auditoria.bat")
+    print("\nListo. Ejecute iniciar.py (o Iniciar.bat / run.sh)")
     return 0
 
 
@@ -124,6 +132,7 @@ def main() -> int:
     ap.add_argument("--proveedor", choices=sorted(KEYS))
     ap.add_argument("--clave")
     ap.add_argument("--sin-prueba", action="store_true", help="no probar la conexion con la API")
+    ap.add_argument("--sin-descarga", action="store_true", help="no descargar los modelos de voz (modo APIs externas)")
     ap.add_argument("--acepto-envio-externo", action="store_true", help="confirma que los textos saldran del equipo (modo sin preguntas)")
     ap.add_argument("--preciso", action="store_true")
     ap.add_argument("--chat", action="store_true")
@@ -138,7 +147,7 @@ def main() -> int:
     if opcion == 1:
         return install_local(*((a.preciso, a.chat) if a.opcion else (None, None)))
     if opcion == 2:
-        return install_external(a.proveedor, a.clave, not a.sin_prueba, a.acepto_envio_externo)
+        return install_external(a.proveedor, a.clave, not a.sin_prueba, a.acepto_envio_externo, not a.sin_descarga)
     return 0
 
 

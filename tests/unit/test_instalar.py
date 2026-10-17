@@ -24,35 +24,35 @@ def test_upsert_conserva_comentarios_y_otras_claves(tmp_path):
 
 
 def test_externo_guarda_proveedor_y_clave(env):
-    assert inst.install_external("groq", "k123", probar=False, confirmado=True) == 0
+    assert inst.install_external("groq", "k123", probar=False, confirmado=True, descargar=False) == 0
     txt = env.read_text(encoding="utf-8")
     assert "LLM_PROVIDER=groq" in txt and "GROQ_API_KEY=k123" in txt and "DATABASE_URL=sqlite" in txt
 
 
 def test_externo_sin_aceptar_el_aviso_no_guarda_nada(env, monkeypatch):
     monkeypatch.setattr("builtins.input", lambda *_: "n")
-    assert inst.install_external("gemini", "k", probar=False) == 1
+    assert inst.install_external("gemini", "k", probar=False, descargar=False) == 1
     assert not env.exists()
 
 
 def test_externo_sin_clave_no_guarda(env, monkeypatch):
     monkeypatch.setattr(inst.getpass, "getpass", lambda *_: "")
-    assert inst.install_external("groq", None, probar=False, confirmado=True) == 1
+    assert inst.install_external("groq", None, probar=False, confirmado=True, descargar=False) == 1
     assert not env.exists()
 
 
 def test_proveedor_desconocido(env):
-    assert inst.install_external("openai", "k", probar=False, confirmado=True) == 1
+    assert inst.install_external("openai", "k", probar=False, confirmado=True, descargar=False) == 1
 
 
 def test_menu_opcion_2_con_teclado(env, monkeypatch, capsys):
     respuestas = iter(["2", "b", "s"])        # opcion 2, Gemini, acepta el aviso
     monkeypatch.setattr("builtins.input", lambda *_: next(respuestas))
     monkeypatch.setattr(inst.getpass, "getpass", lambda *_: "clave-gemini")
-    monkeypatch.setattr("sys.argv", ["instalar.py", "--sin-prueba"])
+    monkeypatch.setattr("sys.argv", ["instalar.py", "--sin-prueba", "--sin-descarga"])
     assert inst.main() == 0
     out = capsys.readouterr().out
-    assert "Instalacion" in out and "TEXTOS de las llamadas" in out and "clave-gemini" not in out
+    assert "Instalacion" in out and "salen del equipo hacia el proveedor" in out and "clave-gemini" not in out
     assert "LLM_PROVIDER=gemini" in env.read_text(encoding="utf-8")
 
 

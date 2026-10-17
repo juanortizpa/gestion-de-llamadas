@@ -12,13 +12,18 @@ import numpy as np
 
 
 def find_ffmpeg() -> str:
+    """ffmpeg del sistema si existe; si no, el que trae el paquete pip `imageio-ffmpeg` (binario propio de cada SO)."""
     exe = shutil.which("ffmpeg")
     if exe:
         return exe
     base = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
     for cand in base.glob("Gyan.FFmpeg*/**/bin/ffmpeg.exe"):
         return str(cand)
-    raise RuntimeError("ffmpeg no encontrado (instalar: winget install Gyan.FFmpeg)")
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        raise RuntimeError("ffmpeg no encontrado: ejecute iniciar.py de nuevo (lo instala) o instale ffmpeg en el sistema") from None
 
 
 def sha256_file(path: Path) -> str:

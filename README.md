@@ -1,7 +1,27 @@
 # Auditoría de llamadas con IA
 
 Audita llamadas de atención al cliente (transcribe, separa asesor/cliente, evalúa la matriz de criterios y
-permite revisión humana). **100 % local: sin internet al usar, sin costo, los audios no salen del equipo.**
+permite revisión humana). **Local por defecto: sin internet al usar, sin costo, los audios no salen del equipo.**
+Opcionalmente puede usar una IA externa (Groq o Gemini): entonces solo los *textos* de las llamadas salen del equipo.
+
+## Inicio rápido: un solo archivo, en cualquier sistema operativo
+
+Solo necesita **Python 3.12 o superior** ([python.org](https://www.python.org/downloads/)) y descargar esta carpeta. Después:
+
+| Sistema | Qué ejecutar |
+|---|---|
+| Windows | doble clic en **`Iniciar.bat`** |
+| macOS / Linux | `./run.sh` (si no es ejecutable: `sh run.sh`) |
+| Cualquiera | `python iniciar.py` |
+
+La **primera vez** el lanzador crea el entorno en `.venv/`, instala las dependencias (incluido ffmpeg, no hace falta instalarlo aparte)
+y muestra el **menú de instalación**: IA **local** (descarga los modelos, ~3 GB) o **APIs externas** (descarga solo los modelos de voz,
+~1,7 GB, y pide su clave). Las siguientes veces abre el programa directamente. Para cambiar de modo: `python iniciar.py --instalar`
+(o `Instalar.bat`). Otras opciones: `--solo-preparar` (prepara y sale), `--puerto 9000`.
+
+En Linux de Debian/Ubuntu puede hacer falta `sudo apt install python3-venv`. La parte local de la IA usa los binarios de
+llama.cpp de cada sistema (Windows, macOS y Linux, x64 y arm64), que el instalador baja solo. Los pasos manuales de más abajo
+quedan como alternativa para quien prefiera instalar a mano.
 
 - Guía de uso para el auditor: [LEEME.md](LEEME.md)
 - Detalle técnico y decisiones del proyecto: [CONTEXT.md](CONTEXT.md)
@@ -11,16 +31,16 @@ permite revisión humana). **100 % local: sin internet al usar, sin costo, los a
 
 | | Mínimo | Recomendado |
 |---|---|---|
-| Sistema | Windows 10/11 (64 bits) | Windows 11 |
+| Sistema | Windows 10/11, macOS o Linux (64 bits) | Windows 11 |
 | Python | 3.12 | 3.12 |
 | RAM | 8 GB | 16 GB (modo Preciso) |
 | Disco libre | 8 GB | 15 GB |
 | Internet | Solo para la instalación inicial | |
 
-> Los scripts de arranque (`.bat`) y `llama.cpp` están pensados para Windows. En Linux/macOS habría que
-> adaptar `Iniciar_Auditoria.bat` y la ruta `server_exe` de `config/settings.toml`.
+> Probado en Windows 11. En macOS y Linux las pruebas automáticas corren en GitHub Actions
+> (`.github/workflows/pruebas.yml`), pero la IA local no se ha probado a mano en esos sistemas.
 
-## Instalación paso a paso (una sola vez)
+## Instalación manual paso a paso (alternativa; solo Windows PowerShell)
 
 Abra **PowerShell** y ejecute cada bloque en orden.
 
