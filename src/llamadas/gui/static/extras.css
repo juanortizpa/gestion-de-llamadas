@@ -1,0 +1,22 @@
+/* Panel de analisis de quejas, comentarios y correo */
+.qs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:10px}
+.qs-grid h3{margin:0 0 8px;font-size:.9rem;color:var(--mut);font-weight:600}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;margin:0 0 7px;font-size:.84rem}
+.bar i{grid-column:1/-1;display:block;height:6px;border-radius:99px;background:linear-gradient(90deg,var(--pri),var(--pri-d));min-width:4px}
+.bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar b{font-variant-numeric:tabular-nums}
+.qs-kpis{display:flex;gap:22px;flex-wrap:wrap;margin-top:4px}.qs-kpis div{display:flex;flex-direction:column}
+.qs-kpis b{font-size:1.5rem}.qs-kpis small{color:var(--mut)}
+.tab .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:99px;background:var(--bad);color:#fff;font-size:.72rem;line-height:18px;text-align:center}
+.c-form{display:flex;flex-direction:column;gap:12px;margin-top:10px}
+.c-form textarea,.mail-card input{width:100%}
+.c-list{display:flex;flex-direction:column;gap:10px}
+.c-item{border:var(--border);border-radius:var(--r-sm);background:var(--surface-2);padding:10px 14px}
+.c-item.nuevo{border-color:var(--pri)}
+.c-h{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.82rem;color:var(--mut)}.c-h b{color:var(--ink)}
+.c-item p{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.c-act{display:flex;gap:6px;flex-wrap:wrap}.c-act .btn{padding:4px 10px;font-size:.8rem}
+.mail-events{display:flex;flex-direction:column;gap:6px}.mail-events label{display:flex;gap:8px;align-items:center;font-size:.9rem}
+.mail-hist{font-size:.82rem;color:var(--mut);margin-top:6px}.mail-hist .bad{color:var(--bad)}
+#mailCard .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.mail-events label{justify-content:flex-start;text-align:left;cursor:pointer}
+.mail-events input[type=checkbox]{width:18px;height:18px;flex:none;margin:0;padding:0}

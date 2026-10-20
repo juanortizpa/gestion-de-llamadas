@@ -137,6 +137,11 @@ class JobManager:
                 server.stop()
             self._set(running=False, finished=time.time(), current=None, stage=None,
                       message="Cancelado" if self.cancel_ev.is_set() else "Listo")
+            try:                                   # aviso por correo (si esta configurado); nunca debe romper el lote
+                from .notify import job_finished
+                job_finished(s, list(self.state["call_ids"]), list(self.state["errors"]))
+            except Exception:
+                pass
 
     def _stage(self, key: str):
         names = [k for k, _ in STAGES]

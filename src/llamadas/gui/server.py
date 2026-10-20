@@ -16,11 +16,12 @@ from urllib.parse import parse_qs, urlparse
 
 from ..audio import find_ffmpeg, parse_filename
 from ..complaints import (complaints_xlsx, delete_complaint, dismiss_suggestion, list_complaints, options,
-                          save_complaint, suggestions)
+                          save_complaint, stats, suggestions)
 from ..config import ROOT, load_settings
 from ..export import collect, export_xlsx
 from ..jobs import AUDIO_EXT, JobManager, forget, incoming_dir, store_dir
 from ..llm import make_llm
+from .. import feedback, notify, vocab
 from ..review import CODES, final_view, load_review, save_review, ui_state
 
 STATIC = Path(__file__).parent / "static"
@@ -194,11 +195,17 @@ class Handler(BaseHTTPRequestHandler):
             wav = _wav_for_playback(m.group(1))
             return self._file(wav, "audio/wav") if wav else self._json({"error": "sin audio"}, 404)
         if p == "/api/quejas":
-            return self._json({"quejas": list_complaints(S), "sugeridas": suggestions(S), "opciones": options(S)})
+            return self._json({"quejas": list_complaints(S), "sugeridas": suggestions(S), "opciones": options(S), "stats": stats(S)})
         if p == "/api/quejas/export":
             tmp = Path(tempfile.gettempdir()) / "Quejas_Usuarios.xlsx"
             complaints_xlsx(tmp, S)
             return self._file(tmp, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Quejas_Usuarios.xlsx")
+        if p == "/api/notify":
+            return self._json(notify.status(S))
+        if p == "/api/comentarios":
+            return self._json(feedback.list_all(S))
+        if p == "/api/vocab":
+            return self._json(vocab.state(S))
         if p == "/api/chat/status":
             return self._json(chat_engine().status(_engine_arg(parse_qs(u.query).get("engine", [None])[0])))
         if p == "/api/export":
@@ -223,8 +230,13 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/process":
             d = json.loads(self._body() or b"{}")
             mode = d.get("mode") if d.get("mode") in ("rapido", "preciso") else S["llm"]["mode"]
+            vocab.shutdown()           # la entrevista libera la GPU antes de analizar
             ok = JOBS.start(bool(d.get("use_llm", True)), mode, _engine_arg(d.get("engine")))
             return self._json({"ok": ok, "error": None if ok else "Ya hay un análisis en curso"})
+        if p in ("/api/notify", "/api/notify/test", "/api/comentarios") or p.startswith("/api/comentarios/"):
+            return self._misc(p)
+        if p.startswith("/api/vocab/"):
+            return self._vocab(p[len("/api/vocab/"):])
         if p == "/api/cancel":
             JOBS.cancel()
             return self._json({"ok": True})
@@ -254,6 +266,45 @@ class Handler(BaseHTTPRequestHandler):
             saved = save_review(m.group(1), json.loads(self._body() or b"{}"), S)
             au = json.loads((S.data_dir / "results" / f"{m.group(1)}.audit.json").read_text(encoding="utf-8"))
             return self._json({"ok": True, "review": saved, "final": final_view(au, saved, S)})
+        return self._json({"error": "ruta desconocida"}, 404)
+
+    def _misc(self, p: str):
+        """Correo (config y prueba) y comentarios sobre la app."""
+        try:
+            d = json.loads(self._body() or b"{}")
+        except ValueError:
+            return self._json({"error": "JSON inválido"}, 400)
+        try:
+            if p == "/api/notify":
+                return self._json(notify.save_config(S, d.get("to", ""), d.get("events") or {}))
+            if p == "/api/notify/test":
+                return self._json(notify.send_test(S))
+            if p == "/api/comentarios":
+                return self._json({"ok": True, "comentario": feedback.add(d, S)})
+            m = re.match(r"^/api/comentarios/([A-Za-z0-9-]{1,12})$", p)
+            if m:
+                return self._json({"ok": feedback.set_estado(m.group(1), str(d.get("estado")), S)})
+        except (ValueError, RuntimeError) as e:
+            return self._json({"error": str(e)}, 400)
+        return self._json({"error": "ruta desconocida"}, 404)
+
+    def _vocab(self, action: str):
+        """Entrevista de vocabulario del dominio (ver vocab.py)."""
+        try:
+            d = json.loads(self._body() or b"{}")
+        except ValueError:
+            return self._json({"error": "JSON inválido"}, 400)
+        try:
+            if action == "turn":
+                if JOBS.status().get("running"):
+                    return self._json({"error": "Hay un análisis en curso: la GPU está ocupada. Espere a que termine."}, 409)
+                return self._json(vocab.turn(S, str(d.get("answer") or "")[:1000], skip=bool(d.get("skip"))))
+            if action == "status":
+                return self._json(vocab.set_status(S, str(d.get("status"))))
+            if action == "edit":
+                return self._json(vocab.edit(S, str(d.get("action")), str(d.get("kind", "terms")), int(d.get("index", -1)), str(d.get("value", ""))[:80]))
+        except Exception as e:
+            return self._json({"error": str(e)}, 500)
         return self._json({"error": "ruta desconocida"}, 404)
 
     def _chat_stream(self):
@@ -290,6 +341,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         p = urlparse(self.path).path
+        m = re.match(r"^/api/comentarios/([A-Za-z0-9-]{1,12})$", p)
+        if m:
+            return self._json({"ok": feedback.delete(m.group(1), S)})
         m = re.match(r"^/api/quejas/([^/]+)$", p)
         if m and ID_RE.match(m.group(1)):
             return self._json({"ok": delete_complaint(m.group(1), S)})
@@ -307,6 +361,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def run(port: int = 8765, open_browser: bool = True) -> None:
     S.data_dir.mkdir(parents=True, exist_ok=True)
+    notify.start_background(S)
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{port}/"
     print(f"Auditoría de Llamadas lista en {url}  (Ctrl+C para cerrar)")

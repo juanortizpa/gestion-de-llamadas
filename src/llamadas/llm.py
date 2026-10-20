@@ -27,11 +27,12 @@ def find_llama_server(models_dir: Path, configured: str = "") -> Path:
     (llama-server.exe en Windows, llama-server en Linux/macOS; cada release lo deja en una carpeta distinta)."""
     if configured and (models_dir / configured).exists():
         return models_dir / configured
-    base = models_dir / "llm" / "llama.cpp"
-    for name in ("llama-server.exe", "llama-server"):
-        found = next((p for p in base.rglob(name) if p.is_file()), None) if base.exists() else None
-        if found:
-            return found
+    # llama-cuda (con GPU NVIDIA) tiene prioridad; llama.cpp es la version CPU, valida en cualquier equipo
+    for base in (models_dir / "llm" / "llama-cuda", models_dir / "llm" / "llama.cpp"):
+        for name in ("llama-server.exe", "llama-server"):
+            found = next((p for p in base.rglob(name) if p.is_file()), None) if base.exists() else None
+            if found:
+                return found
     return models_dir / (configured or "llm/llama.cpp/llama-server")
 
 
@@ -72,9 +73,10 @@ class LlamaServer:
         env = dict(os.environ)
         for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):        # Linux/macOS: las .so/.dylib de llama.cpp viven junto al ejecutable
             env[var] = str(self.exe.parent) + os.pathsep + env.get(var, "")
+        gpu = ["-ngl", str(cfg["gpu_layers"]), "-np", "1", "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0"] if cfg.get("gpu_layers", 0) and "llama-cuda" in str(self.exe) else []
         self.proc = subprocess.Popen(
             [str(self.exe), "-m", str(self.model), "-t", str(cfg["threads"]), "-c", str(self.ctx), "--port", str(self.port),
-             "--host", "127.0.0.1", "--cache-prompt", *self.extra_args],
+             "--host", "127.0.0.1", "--cache-prompt", *gpu, *self.extra_args],
             stdout=log, stderr=log, env=env, cwd=str(self.exe.parent), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         t0 = time.time()
         while time.time() - t0 < timeout_s:
