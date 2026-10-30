@@ -25,9 +25,9 @@ MENU = """
 ==========================================================
   Auditoria de llamadas con IA - Instalacion
 ==========================================================
-  1) LOCAL        Modelos en este equipo (~3 GB). Sin internet al usar,
+  1) LOCAL        Modelos en este equipo (~5 GB). Sin internet al usar,
                   sin costo por uso y los audios no salen de la empresa.
-  2) APIs EXTERNAS  Groq o Gemini. Solo baja los modelos de voz (~1,7 GB,
+  2) APIs EXTERNAS  Groq o Gemini. Solo baja los modelos de voz (~3,2 GB,
                   la transcripcion siempre es local), pero los TEXTOS de
                   las llamadas se envian al proveedor y se paga/limita
                   segun su plan.
@@ -109,7 +109,7 @@ def install_external(provider: str | None = None, key: str | None = None, probar
     upsert_env(ENV, {"LLM_PROVIDER": provider, KEYS[provider]: key, "DATABASE_URL": DEFAULT_DB})
     print(f"\nGuardado en .env: modo {NAMES[provider]}.")
     if descargar:       # la transcripcion y la separacion de hablantes siguen siendo locales aunque la IA sea externa
-        print("\nDescargando los modelos de voz (~1,7 GB, necesita internet una sola vez)...")
+        print("\nDescargando los modelos de voz (~3,2 GB, necesita internet una sola vez)...")
         rc = subprocess.call([sys.executable, str(ROOT / "scripts" / "descargar_modelos.py"), "--solo-voz"], cwd=ROOT)
         if rc != 0:
             print("\nLa descarga fallo. Revise la conexion y ejecute: python iniciar.py --instalar (lo ya descargado no se repite).")
