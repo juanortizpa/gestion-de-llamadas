@@ -241,7 +241,9 @@ def test_eliminar_llamada_borra_fragmentos_vectores_y_cache(world):
     st = eng.store.stats()
     with eng.store.conn() as c:
         assert c.execute("SELECT COUNT(*) FROM chunks WHERE call_id='1003'").fetchone()[0] == 0
-        assert c.execute("SELECT COUNT(*) FROM vec_chunks").fetchone()[0] == st["vectors"] == st["chunks"]
+        if eng.store.native:  # sin la extension (python.org en macOS) los vectores viven solo en embcache
+            assert c.execute("SELECT COUNT(*) FROM vec_chunks").fetchone()[0] == st["vectors"]
+        assert st["vectors"] == st["chunks"]
         assert c.execute("SELECT COUNT(*) FROM fts").fetchone()[0] == st["chunks"]
 
 
@@ -446,10 +448,13 @@ def test_cortar_el_flujo_libera_el_candado_de_la_ia(world):
     eng.gen_lock.release()
 
 
-# ---------------------------------------------------------------- base vectorial (sqlite-vec)
-def test_base_vectorial_knn_y_filtro_por_llamada(tmp_path):
-    from llamadas.chat.store import Store
-    st = Store(path=tmp_path / "index.db")
+# ---------------------------------------------------------------- base vectorial (sqlite-vec o numpy)
+@pytest.mark.parametrize("native", [True, False], ids=["sqlite-vec", "numpy"])
+def test_base_vectorial_knn_y_filtro_por_llamada(tmp_path, native):
+    from llamadas.chat.store import Store, vec_extension_available
+    if native and not vec_extension_available():
+        pytest.skip("este Python no permite cargar extensiones de SQLite (p. ej. el de python.org en macOS)")
+    st = Store(path=tmp_path / "index.db", native=native)
     e = lambda *v: np.asarray(v, dtype=np.float32) / np.linalg.norm(v)
     ch = lambda h: {"kind": "ventana", "ctx": "", "body": h, "hash": h}
     st.replace_call({"call_id": "A"}, [ch("a1"), ch("a2")], {"a1": e(1, 0, 0), "a2": e(0, 1, 0)}, lambda c: c["body"])

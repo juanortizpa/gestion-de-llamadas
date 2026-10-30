@@ -27,6 +27,38 @@ quedan como alternativa para quien prefiera instalar a mano.
 - Detalle técnico y decisiones del proyecto: [CONTEXT.md](CONTEXT.md)
 - Video de funcionalidades: [presentacion/Video_Auditoria_IA.mp4](presentacion/Video_Auditoria_IA.mp4)
 
+## Inteligencia artificial: modelos, proveedor y por qué no usamos un agente
+
+**No usamos un agente (bucle con herramientas) porque el problema no lo necesita.** El sistema está pensado para montarse en **infraestructura local** (el servidor o equipo de la entidad), sin costo por uso y sin que los audios salgan de ahí. La tarea es fija y conocida (los mismos 10 criterios de la matriz), así que el flujo es determinista:
+
+1. **Código, sin IA:** transcripción (Whisper), separación de hablantes, mensajes grabados, tiempos de espera y reglas por criterio.
+2. **IA, solo para lo ambiguo:** el modelo responde sí/no con una **cita literal** a los sub-criterios que las reglas no pudieron decidir; el código verifica que la cita exista y calcula la nota.
+3. **Persona:** el auditor confirma o corrige; el error crítico (E1) solo lo confirma un humano.
+
+En CPU local cada vuelta extra de un agente cuesta 10–60 s (el modelo de 3B lee ~40 tokens/s): un bucle con herramientas haría impredecible el tiempo de un lote de 80 llamadas/día sin mejorar el resultado, porque los pasos ya se conocen. Sin bucle no puede haber un «agente atrapado» gastando tokens: cada llamada hace un número acotado de consultas.
+
+**Modelos (se elige en la app: modo Rápido o Preciso):**
+
+| Modo | Modelo | Medido en i5-8250U (2026-10-05) | Uso |
+|---|---|---|---|
+| Rápido (liviano) | Qwen2.5-3B-Instruct Q4_K_M (llama.cpp) | 49–64 s por llamada, ~2 GB de RAM | Uso diario |
+| Preciso (pesado) | Qwen2.5-7B-Instruct Q4_K_M (llama.cpp) | 157–199 s por llamada, 7,4 GB de RAM; más citas verificables | Lotes largos o nocturnos |
+
+**API externa (opcional y gratuita):** la capa de proveedor (`make_llm` en `src/llamadas/llm.py`) permite cambiar a **Groq (`openai/gpt-oss-120b`)** o **Google Gemini (`gemini-1.5-flash`)** con el mismo contrato, usando sus **planes gratuitos** (con límites de uso). Sirve para equipos sin recursos para un modelo local, y es donde podrían correr agentes en el futuro sin costo y sin cargar el equipo. Con API externa **los textos de las llamadas salen del equipo** (el instalador lo advierte). Se configura con `LLM_PROVIDER` y la clave en `.env` (ver [.env.example](.env.example)).
+
+**Base de datos vectorial:** el Asistente usa una **base de datos vectorial** (SQLite con la extensión `sqlite-vec`, en `data/chat/index.db`) para buscar por significado en las llamadas, combinada con búsqueda por palabras (FTS5). No necesita servidor aparte.
+
+**Límites activos aunque no haya agente:**
+
+| Límite | Dónde |
+|---|---|
+| Consultas por llamada | Acotadas: lotes de ≤4 preguntas, sin bucle |
+| Timeout | 60 s por petición a la API externa; 180 s para que arranque el modelo local |
+| Tokens | Máx. 900 por respuesta en la auditoría, 350 en el Asistente, 1.100 de contexto |
+| Confirmación | Revisión humana antes de la nota final; E1 solo con confirmación humana |
+
+Además: salida JSON forzada por esquema, temperatura 0 con semilla fija (reproducible) y validador de citas (una cita inventada se descarta y el criterio queda para revisión humana).
+
 ## Requisitos
 
 | | Mínimo | Recomendado |
@@ -83,7 +115,7 @@ py -3.12 -m venv .venv
 Doble clic en **`Instalar.bat`** (crea el entorno si falta) y elija:
 
 1. **Local**: descarga los modelos (~3 GB). Sin internet al usar; los audios y textos no salen del equipo. Pensado para empresas que ya tienen servidores o recursos: no hay costo por uso.
-2. **APIs externas** (Groq Llama 3.3 70B o Gemini 1.5 Flash): no descarga modelos pesados, pero **los textos de las llamadas se envían al proveedor**. Pide la clave, la guarda en `.env` (local, no se versiona) y prueba la conexión.
+2. **APIs externas** (Groq GPT-OSS 120B o Gemini 1.5 Flash): no descarga modelos pesados, pero **los textos de las llamadas se envían al proveedor**. Pide la clave, la guarda en `.env` (local, no se versiona) y prueba la conexión.
 
 Se puede repetir para cambiar de modo. Variables en [.env.example](.env.example). La base del Asistente es SQLite con `sqlite-vec` (búsqueda vectorial en el mismo archivo).
 
