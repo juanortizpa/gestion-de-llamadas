@@ -1,7 +1,3 @@
 # run.sh debe tener finales de linea LF aunque se edite en Windows; los .bat necesitan CRLF
 *.sh text eol=lf
 *.bat text eol=crlf
-
-# audios/ son llamadas reales (solo con el repositorio privado): quedan fuera del "Download ZIP" de GitHub y de git archive
-audios export-ignore
-audios/** export-ignore

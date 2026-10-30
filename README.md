@@ -249,7 +249,7 @@ models/         (local, ignorado) modelos descargados
 ## Privacidad
 
 - Nunca suba a git audios, transcripciones, `data/`, `models/` ni `config/agents.toml` (ya están en `.gitignore`).
-- La única excepción es `audios/`: 14 llamadas reales autorizadas para pruebas. Solo pueden estar mientras el repositorio sea **privado** y con acceso del equipo autorizado, y **no van en el ZIP de la entrega** (el «Download ZIP» de GitHub ya las excluye: `export-ignore` en `.gitattributes`).
+- La única excepción es `audios/`: 14 llamadas reales autorizadas para pruebas. Solo pueden estar mientras el repositorio sea **privado** y con acceso del equipo autorizado. **Van incluidas en el ZIP de la entrega**: compártanlo solo con personas autorizadas.
 - El servidor solo escucha en `127.0.0.1`. Active BitLocker en el disco.
 - El botón **Eliminar llamada** borra audio, transcripción y resultados de esa llamada.
 
