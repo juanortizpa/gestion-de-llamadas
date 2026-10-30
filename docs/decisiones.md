@@ -1,6 +1,6 @@
 # Decisiones, datos y línea base
 
-Registro único de la entrega (Momento 2). Aquí está **qué se construyó, por qué, y con qué cifras se sostiene**. Los números salen de `eval/` y se pueden regenerar con un comando (sección 5). Última medición: **2026-10-29**.
+Registro único de la entrega (Momento 2). Aquí está **qué se construyó, por qué, y con qué cifras se sostiene**. Los números salen de `eval/` y se pueden regenerar con un comando (sección 5). Última medición: **2026-10-29** (RAG híbrido: **2026-10-30**).
 
 > Alcance de este documento: arquitectura, decisión sobre RAG y línea base. Son datos **sintéticos** (llamadas inventadas, sin datos personales, hechas con `tests/synthetic/builder.py`): sirven para medir y comparar, **no** reemplazan la validación contra llamadas reales auditadas por humanos (D-19 en `CONTEXT.md` §17).
 
@@ -13,7 +13,7 @@ Medida con **Groq · `openai/gpt-oss-120b`**, la IA configurada en `.env` (`LLM_
 | # | Cifra | Mediana | n | Fecha |
 |---|---|---|---|---|
 | 1 | **Latencia de la IA por llamada** (auditoría) | **0,8 s** (mín. 0,5 · p90 1,1 · máx. 1,5) | 42 llamadas | 2026-10-29 |
-| 2 | **Tokens por llamada** (entrada + salida) | **836,5** (695 entrada + 141 salida; rango 717–973) | 42 llamadas | 2026-10-29 |
+| 2 | El README decía que el repositorio es privado | Ambos | **Corregido** el 2026-10-29 (entonces era público). Desde el 2026-10-30 el repositorio **sí es privado** porque contiene `audios/` con llamadas reales; el README lo explica y dice cómo autenticarse |
 | 3 | **Acierto contra los casos dorados** | **98,3 %** de los criterios (118 de 120); la IA acertó **100 %** de sus respuestas (39 de 39) | 120 criterios por corrida (12 casos × 10) × 3 corridas; mediana de las corridas | 2026-10-29 |
 | 4 | **Latencia del Asistente** (pregunta abierta, de la pregunta al final de la respuesta) | **0,62 s** (primer token 0,55 s) | 12 preguntas | 2026-10-29 |
 
@@ -92,18 +92,18 @@ Asistente de consulta (pestaña «Asistente»)
 
 Corpus sintético: 14 llamadas con temas distintos (claustrofobia, cancelación, horarios, reclamo, preparación de tomografía…), 166 fragmentos. 20 preguntas con la llamada y la frase donde está la respuesta; 12 *directas* (comparten palabras con el texto) y 8 *parafraseadas*. «Correcto» = alguno de los 6 fragmentos devueltos pertenece a la llamada esperada **y contiene la frase** que responde la pregunta.
 
-| Métrica (solo palabras, FTS5/BM25) | Resultado |
-|---|---|
-| Llamada correcta en el 1.er resultado | **70 %** (14 de 20) |
-| Llamada correcta en los 3 primeros | 75 % |
-| Llamada correcta entre los 6 devueltos | **85 %** |
-| **Fragmento correcto entre los 6 devueltos** | **80 %** (16 de 20) |
-| MRR del fragmento | 0,735 |
-| Preguntas directas / parafraseadas (fragmento en top-6) | 83 % / 75 % |
+| Métrica | Solo palabras (FTS5/BM25) · 2026-10-29 | **Híbrido** (FTS5 + vectores `multilingual-e5-small`) · 2026-10-30 |
+|---|---|---|
+| Llamada correcta en el 1.er resultado | 70 % (14 de 20) | **80 %** (16 de 20) |
+| Llamada correcta en los 3 primeros | 75 % | 85 % |
+| Llamada correcta entre los 6 devueltos | 85 % | 90 % |
+| **Fragmento correcto entre los 6 devueltos** | 80 % (16 de 20) | **90 %** (18 de 20) |
+| MRR del fragmento | 0,735 | **0,835** |
+| Preguntas directas / parafraseadas (fragmento en top-6) | 83 % / 75 % | **100 %** / 75 % |
 
-**Las búsquedas vectoriales no se midieron:** el modelo de embeddings `multilingual-e5-small` no está instalado en este equipo, así que la medición corresponde al modo degradado (solo palabras). El script detecta el modelo y, si existe, mide el modo híbrido por sí solo (`scripts/descargar_modelos.py --chat` y luego `python eval/run_eval.py --suite rag`). Está documentado como pendiente, no como resultado.
+**Modo híbrido medido el 2026-10-30 en GitHub Actions** (workflow *Medicion RAG*, `.github/workflows/eval-rag.yml`): baja solo llama.cpp y `multilingual-e5-small` (~180 MB) y corre `python eval/run_eval.py --suite rag --engine ninguna`, sin IA de texto ni claves; mismo corpus y mismas 20 preguntas. Los vectores suben el fragmento correcto en top-6 de 80 % a **90 %** y el MRR de 0,735 a **0,835**, y las preguntas directas llegan a 100 %. Las parafraseadas **no mejoran** (75 %, 6 de 8): los 2 fallos que quedan son parafraseados (detalle por pregunta en el artefacto `eval-rag` de esa corrida). El umbral `min_cosine = 0,80` sigue sin calibrar con datos reales. Con este resultado se mantiene la decisión de usar búsqueda híbrida.
 
-**Qué dicen los fallos** (4 de 20):
+**Qué dicen los fallos de la búsqueda solo por palabras** (4 de 20):
 1. *R03 «estacionamiento» y R08 «seguro médico»:* la transcripción dice «parqueadero» y «EPS». No comparten ninguna palabra; es el caso para el que sirven los vectores y es la razón de mantener el modo híbrido.
 2. *R06 «preparación…» y R04 «esperar dos horas»:* el enrutador interpreta «preparación» como el criterio Z1 y «esperar» como G1 y **sube la puntuación** de los fragmentos de criterio de *todas* las llamadas (×1,4), que desplazan a la transcripción donde está la respuesta. Es un defecto real del Asistente que esta medición dejó a la vista. Sigue sin corregir.
 
@@ -133,6 +133,7 @@ python eval/run_eval.py --pause 4               # si el proveedor responde 429
 
 - **Casos dorados:** `eval/casos.py` (14 de auditoría, 14 llamadas y 20 preguntas de RAG), armados con `tests/synthetic/builder.py`. Lo esperado de cada caso se fija por construcción, nunca mirando lo que responde el sistema.
 - **Resultados:** `eval/resultados/AAAA-MM-DD_HHMM_<motor>_<modelo>_detalle.csv` (una fila por llamada a la IA, criterio y pregunta), `resumen.csv` (acumulado con fecha) y `linea_base.json`.
+- **RAG híbrido sin instalar nada:** en GitHub, *Actions → Medicion RAG → Run workflow*; el resultado sale en el resumen del job.
 - **Precios:** `eval/precios.toml`. Si se cambia de modelo, agregar su tarifa.
 - Todo se calcula en un directorio temporal; no toca `data/` ni las llamadas reales.
 
@@ -173,12 +174,34 @@ Regla de la entrega: otra persona descarga el proyecto, sigue **solo el README**
 | 4 | No decía cómo descargar el proyecto | Windows | **Corregido:** Download ZIP o `git clone` |
 | 5 | Instalar Python: winget solo aparecía en la sección manual; `python` abría la Microsoft Store; en macOS el comando es `python3` | Ambos | **Corregido** en el inicio rápido |
 | 6 | Dos preguntas del menú sin documentar | Ambos | **Corregido:** tabla con los valores por defecto |
-| 7 | La descarga de Qwen (~2 GB) no muestra progreso y parece colgada | Mac | **Documentado**; la barra de progreso queda pendiente |
-| 8 | «Menos de 1 min por llamada» no se cumple en CPU | Ambos | **Documentado:** tiempos medidos en el README; la tarjeta se refiere solo a la IA |
+| 7 | La descarga de Qwen (~2 GB) no muestra progreso y parece colgada | Mac | **Corregido:** `descargar_modelos.py` muestra el porcentaje en todas las descargas; Qwen se baja con la misma función |
+| 8 | «Menos de 1 min por llamada» no se cumple en CPU | Ambos | **Corregido:** tiempos medidos en el README, y la tarjeta *Rápido* aclara que el minuto es de la IA y que sin GPU la transcripción tarda más |
 | 9 | `Iniciar.bat` e `Iniciar_Auditoria.bat` sin explicar; «Uso diario» solo para Windows | Ambos | **Corregido:** son el mismo lanzador; se añadió `./run.sh` |
-| 10 | Los contadores de Resultados marcan 0 con 1 llamada «Para revisar» | Mac | **Pendiente** de revisar |
-| 11 | La GPU NVIDIA no se usó: el instalador baja llama.cpp para CPU | Windows | **Pendiente** |
+| 10 | Los contadores de Resultados marcan 0 con 1 llamada «Para revisar» | Mac | **Corregido:** los números se animan con `requestAnimationFrame`; si el navegador pausa la animación (pestaña en segundo plano) se quedaban en el primer cuadro, 0. Ahora siempre queda el valor final. Causa deducida del código: no se reprodujo en el Mac |
+| 11 | La GPU NVIDIA no se usó: el instalador baja llama.cpp para CPU | Windows | **Documentado:** el README explica cómo poner llama.cpp con CUDA en `models/llm/llama-cuda/` (la aplicación ya la prefiere si existe). No se automatizó en el instalador porque no se pudo verificar en un equipo con GPU |
 
 **Resultado de la auditoría con el audio sintético:** las dos llamadas quedaron como «Motivo sin identificar», y en el Mac P1 (saludo) salió 0 aunque la asesora dijo la entidad y su nombre. Con voces sintéticas (en Windows solo había una voz en inglés) esto no mide la calidad del sistema; la calidad se mide en §1 con los casos dorados.
 
 **Límites de la prueba.** Las dos se hicieron con apoyo de un asistente de IA que leyó el README y manejó la consola, y el audio se cargó con un script porque el asistente no puede arrastrar archivos. Demuestran que el README basta para instalar y usar la aplicación en dos sistemas operativos distintos; no miden la usabilidad para un auditor sin experiencia técnica.
+
+---
+
+## 7. Por qué no hay agente (para la sustentación)
+
+La rúbrica evalúa un agente con herramientas propias, límites activos y una capa de proveedor desacoplada. **La decisión del equipo es no usar un bucle de agente**, y esta es la justificación, con evidencia:
+
+1. **La tarea es fija.** Cada llamada se evalúa contra los mismos 10 criterios de la matriz, siempre en el mismo orden: transcribir → reglas → IA solo en lo dudoso → revisión humana. No hay que decidir «qué hacer a continuación». Un agente que elige herramientas agregaría pasos y variabilidad sin ganar nada.
+2. **Lo medido lo respalda.** 8 de los 10 criterios se resuelven con código (§2). La IA responde sub-checks concretos con cita verificada, en 0,8 s y ~840 tokens por llamada (§1). Un bucle de agente multiplicaría las consultas y el costo, y abriría la puerta a respuestas sin cita.
+3. **El «bucle ciego» no puede ocurrir.** Las consultas a la IA están acotadas de antemano: lotes de a lo sumo 4 preguntas sobre una lista fija de sub-checks (`auditor.py`). No hay ciclo que pueda repetirse sin fin.
+4. **Trazabilidad con datos sensibles.** Con el flujo determinista, cada nota se explica por la regla o la cita que la produjo, y una persona la confirma. Cada paso que decide un modelo sería un paso más que auditar.
+
+**Lo que sí cumple de la dimensión «agente»:**
+
+| Exigencia de la rúbrica | Cómo se cumple | Dónde |
+|---|---|---|
+| Herramientas propias | Reglas por criterio, validador de citas, enrutador del Asistente (conteos y listas con SQL, sin IA) y búsqueda híbrida: funciones propias que la IA no reemplaza | `src/llamadas/rules/`, `auditor.py`, `chat/` |
+| Límites activos | (1) consultas acotadas: lotes de ≤ 4 preguntas; (2) timeout de 60 s por petición externa y 180 s para arrancar la IA local; (3) tope de tokens: 900 en la auditoría, 350 por respuesta y 1.100 de contexto en el Asistente; (4) máximo 2 reintentos ante 429 y ninguno si la cuota está agotada. Además, una persona confirma cada nota | `config/settings.toml`, `llm.py` |
+| Capa de proveedor desacoplada | Groq, Gemini y llama.cpp local con el mismo contrato (`chat_json` / `chat_stream`); se cambia con `LLM_PROVIDER` en `.env`, sin tocar código | `src/llamadas/llm.py` (`make_llm`) |
+| Fallos sin traza | Timeout, JSON inválido, API caída, 401/403/429 y falta de clave: mensaje legible sin cuerpo de la respuesta ni clave, con pruebas automáticas | `RemoteLLM._fail`, `tests/unit/test_fallos_ia.py` |
+
+**Si preguntan «¿cuándo sí usarían un agente?»:** cuando la tarea deje de ser fija. Por ejemplo, un Asistente que además de responder tenga que consultar otros sistemas (agenda, PQRS) y decidir en qué orden. Hoy esa elección la resuelve el enrutador con reglas, porque las rutas posibles son pocas y conocidas.
