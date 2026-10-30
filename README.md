@@ -6,18 +6,45 @@ Opcionalmente puede usar una IA externa (Groq o Gemini): entonces solo los *text
 
 ## Inicio rápido: un solo archivo, en cualquier sistema operativo
 
-Solo necesita **Python 3.12 o superior** ([python.org](https://www.python.org/downloads/)) y descargar esta carpeta. Después:
+Solo necesita **Python 3.12 o superior** e internet durante la instalación.
+
+1. **Descargue el proyecto.** En GitHub, botón verde **Code → Download ZIP** y descomprímalo, o con Git: `git clone https://github.com/juanortizpa/gestion-de-llamadas.git`. El repositorio es público: no necesita cuenta.
+   En Windows descomprímalo en una **ruta corta** (por ejemplo `C:\gdl`): dentro de `Descargas\...\gestion-de-llamadas-main\` algunas rutas pasan el límite de 260 caracteres de Windows y la descompresión falla.
+2. **Instale Python si no lo tiene:**
+   - Windows: `winget install --id Python.Python.3.12 -e` o [python.org](https://www.python.org/downloads/) (marque «Add python.exe to PATH»). Si al escribir `python` se abre la Microsoft Store, Python no está instalado: es solo un acceso directo de Windows.
+   - macOS: `brew install python@3.12` o [python.org](https://www.python.org/downloads/). En macOS el comando es `python3`.
+   - Ubuntu/Debian: `sudo apt install python3.12 python3.12-venv`.
+3. **Ejecute el lanzador** dentro de la carpeta del proyecto:
 
 | Sistema | Qué ejecutar |
 |---|---|
 | Windows | doble clic en **`Iniciar.bat`** |
 | macOS / Linux | `./run.sh` (si no es ejecutable: `sh run.sh`) |
-| Cualquiera | `python iniciar.py` |
+| Cualquiera | `python iniciar.py` (macOS/Linux: `python3 iniciar.py`) |
 
 La **primera vez** el lanzador crea el entorno en `.venv/`, instala las dependencias (incluido ffmpeg, no hace falta instalarlo aparte)
-y muestra el **menú de instalación**: IA **local** (descarga los modelos, ~3 GB) o **APIs externas** (descarga solo los modelos de voz,
-~1,7 GB, y pide su clave). Las siguientes veces abre el programa directamente. Para cambiar de modo: `python iniciar.py --instalar`
+y muestra el **menú de instalación**: IA **local** (descarga los modelos, ~5 GB) o **APIs externas** (descarga solo los modelos de voz,
+~3,2 GB, y pide su clave). Las siguientes veces abre el programa directamente. Para cambiar de modo: `python iniciar.py --instalar`
 (o `Instalar.bat`). Otras opciones: `--solo-preparar` (prepara y sale), `--puerto 9000`.
+
+**Preguntas del menú** (Enter acepta el valor por defecto):
+
+| Pregunta | Por defecto | Qué hace |
+|---|---|---|
+| `Elija una opcion [1-3]` | — | 1 = IA local, 2 = APIs externas (Groq o Gemini), 3 = salir |
+| `¿Incluir modo Preciso (+4,5 GB, ...)? [s/N]` | No | Baja Qwen2.5-7B. Solo conviene con 16 GB de RAM |
+| `¿Incluir busqueda semantica del Asistente (+150 MB)? [S/n]` | Sí | Modelo de embeddings para que el Asistente busque por significado |
+
+La descarga de Qwen2.5-3B (~2 GB) no muestra barra de progreso: si la consola parece quieta unos minutos, está descargando. Al terminar, el programa se abre solo en `http://127.0.0.1:8765`.
+
+**Cuánto tarda** (prueba del compañero, 2026-10-29; detalle en [docs/decisiones.md](docs/decisiones.md) §6):
+
+| Equipo | De leer el README a ver la app | Analizar una llamada (modo Rápido) |
+|---|---|---|
+| Mac M1, 8 GB, Python ya instalado | ~5 min | 9,5 min para 87 s de audio |
+| Windows, i5-1035G1, 8 GB, solo CPU, sin Python | ~22 min | ~11 min para 36 s de audio |
+
+Sin GPU NVIDIA casi todo ese tiempo es la transcripción (Whisper large-v3 en CPU); la IA local suma entre 25 s y 4 min. El «Menos de 1 min» de la tarjeta *Rápido* es solo la IA, con GPU.
 
 En Linux de Debian/Ubuntu puede hacer falta `sudo apt install python3-venv`. La parte local de la IA usa los binarios de
 llama.cpp de cada sistema (Windows, macOS y Linux, x64 y arm64), que el instalador baja solo. Los pasos manuales de más abajo
@@ -77,8 +104,8 @@ Además: salida JSON forzada por esquema, temperatura 0 con semilla fija (reprod
 | Disco libre | 8 GB | 15 GB |
 | Internet | Solo para la instalación inicial | |
 
-> Probado en Windows 11. En macOS y Linux las pruebas automáticas corren en GitHub Actions
-> (`.github/workflows/pruebas.yml`), pero la IA local no se ha probado a mano en esos sistemas.
+> Probado a mano en Windows 11 y en macOS (Apple M1, 8 GB; prueba del compañero del 2026-10-29, ver [docs/decisiones.md](docs/decisiones.md) §6).
+> En Linux solo corren las pruebas automáticas de GitHub Actions (`.github/workflows/pruebas.yml`).
 
 ## Instalación manual paso a paso (alternativa; solo Windows PowerShell)
 
@@ -102,7 +129,7 @@ ffmpeg -version
 
 ### 2. Descargar el proyecto
 
-El repositorio es **privado**: necesita una cuenta de GitHub con acceso (Git le pedirá iniciar sesión en el navegador).
+El repositorio es público: no necesita cuenta de GitHub.
 
 ```powershell
 cd $HOME\Desktop
@@ -122,12 +149,12 @@ py -3.12 -m venv .venv
 
 Doble clic en **`Instalar.bat`** (crea el entorno si falta) y elija:
 
-1. **Local**: descarga los modelos (~3 GB). Sin internet al usar; los audios y textos no salen del equipo. Pensado para empresas que ya tienen servidores o recursos: no hay costo por uso.
+1. **Local**: descarga los modelos (~5 GB). Sin internet al usar; los audios y textos no salen del equipo. Pensado para empresas que ya tienen servidores o recursos: no hay costo por uso.
 2. **APIs externas** (Groq GPT-OSS 120B o Gemini 1.5 Flash): no descarga modelos pesados, pero **los textos de las llamadas se envían al proveedor**. Pide la clave, la guarda en `.env` (local, no se versiona) y prueba la conexión.
 
 Se puede repetir para cambiar de modo. Variables en [.env.example](.env.example). La base del Asistente es SQLite con `sqlite-vec` (búsqueda vectorial en el mismo archivo).
 
-### 4. Descargar los modelos de IA (~3 GB, necesita internet)
+### 4. Descargar los modelos de IA (~5 GB, necesita internet)
 
 Los modelos no están en git por su tamaño.
 
@@ -135,7 +162,7 @@ Los modelos no están en git por su tamaño.
 .venv\Scripts\python.exe scripts\descargar_modelos.py
 ```
 
-Descarga: Whisper *medium* (voz a texto), los modelos de separación de hablantes, `llama.cpp` y Qwen2.5-3B (IA
+Descarga: Whisper *large-v3* (voz a texto; el modelo que indica `config/settings.toml`), los modelos de separación de hablantes, `llama.cpp` y Qwen2.5-3B (IA
 local, modo *Rápido*). Es seguro repetirlo: lo que ya existe no se baja de nuevo.
 
 Para el modo **Preciso** (más lento, ~3 min por llamada, más citas verificables) añada ~4,5 GB:
@@ -161,7 +188,7 @@ Escriba los nombres de los asesores. Ese archivo es privado y no se sube a git.
 
 ## Uso diario
 
-1. Doble clic en **`Iniciar_Auditoria.bat`** (abre `http://127.0.0.1:8765` en el navegador; no cierre la ventana negra).
+1. Abra el programa: en Windows, doble clic en **`Iniciar.bat`** (`Iniciar_Auditoria.bat` es el mismo lanzador con el nombre antiguo); en macOS/Linux, `./run.sh`. Se abre `http://127.0.0.1:8765` en el navegador; no cierre la ventana de la consola mientras lo use.
 2. **Cargar y analizar:** arrastre los audios (`.gsm`, `.mp3`, `.wav`) y pulse **Analizar**.
 3. **Resultados y revisión:** abra cada llamada, resuelva los criterios con **?** y guarde.
 4. **Exportar a Excel:** genera la matriz con el formato de `Matriz_Auditoria_Llamadas plantilla.xlsx`.
@@ -228,6 +255,9 @@ models/         (local, ignorado) modelos descargados
 
 | Síntoma | Solución |
 |---|---|
+| Falla la descompresión del ZIP («No se puede encontrar una parte de la ruta») | Descomprímalo en una ruta corta, por ejemplo `C:\gdl` |
+| Escribir `python` abre la Microsoft Store | Python no está instalado: `winget install --id Python.Python.3.12 -e` |
+| macOS/Linux: `python: command not found` | Use `python3 iniciar.py` o `./run.sh` |
 | `ffmpeg no encontrado` | Reinstale con `winget install Gyan.FFmpeg` y abra una PowerShell nueva |
 | «La IA local no está instalada» | Falta el paso 4; mientras tanto el sistema funciona solo con reglas |
 | `py` o `python` no se reconoce | Cierre y abra PowerShell; si persiste, reinstale Python marcando «Add to PATH» |
