@@ -28,10 +28,21 @@ TITANET_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-r
 
 
 def bajar(url: str, dest: Path) -> None:
+    """Descarga con porcentaje en la misma linea: en las descargas grandes (Qwen ~2 GB) se ve que avanza."""
     print(f"  descargando {dest.name} ...", flush=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
-    urllib.request.urlretrieve(url, tmp)
+    ultimo = [-1]
+
+    def progreso(bloques: int, tam_bloque: int, total: int) -> None:
+        pct = min(100, bloques * tam_bloque * 100 // total) if total > 0 else -1
+        if pct != ultimo[0]:
+            ultimo[0] = pct
+            print(f"\r    {pct:3d} % de {total / 1e6:,.0f} MB", end="", flush=True)
+
+    urllib.request.urlretrieve(url, tmp, progreso)
+    if ultimo[0] >= 0:
+        print()
     tmp.replace(dest)
 
 
@@ -107,12 +118,12 @@ def llama_cpp() -> None:
 
 
 def gguf(repo: str, fichero: str, etiqueta: str) -> None:
+    """Descarga directa de Hugging Face con el mismo porcentaje que el resto (hf_hub_download no mostraba avance)."""
     print(etiqueta)
     if (LLM / fichero).exists():
         print("  ya existe")
         return
-    from huggingface_hub import hf_hub_download
-    hf_hub_download(repo, fichero, local_dir=str(LLM))
+    bajar(f"https://huggingface.co/{repo}/resolve/main/{fichero}", LLM / fichero)
     print("  listo")
 
 
