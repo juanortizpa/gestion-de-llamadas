@@ -23,12 +23,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
+      - name: Medir solo por palabras (sin modelo de embeddings, modo degradado)
+        run: |
+          python eval/run_eval.py --suite rag --engine ninguna | tee rag_palabras.txt
+          { echo "### Solo palabras"; echo '```'; cat rag_palabras.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Descargar llama.cpp y el modelo de embeddings (sin Whisper ni Qwen)
         run: python -c "import sys; sys.path.insert(0, 'scripts'); import descargar_modelos as d; d.LLM.mkdir(parents=True, exist_ok=True); d.llama_cpp(); d.embeddings()"
       - name: Medir la busqueda
         run: |
           python eval/run_eval.py --suite rag --engine ninguna | tee rag.txt
-          { echo '```'; cat rag.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo '### Híbrido (palabras + vectores)'; echo '```'; cat rag.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: eval-rag
