@@ -135,3 +135,50 @@ python eval/run_eval.py --pause 4               # si el proveedor responde 429
 - **Resultados:** `eval/resultados/AAAA-MM-DD_HHMM_<motor>_<modelo>_detalle.csv` (una fila por llamada a la IA, criterio y pregunta), `resumen.csv` (acumulado con fecha) y `linea_base.json`.
 - **Precios:** `eval/precios.toml`. Si se cambia de modelo, agregar su tarifa.
 - Todo se calcula en un directorio temporal; no toca `data/` ni las llamadas reales.
+
+---
+
+## 6. Prueba del compañero (reproducibilidad)
+
+Regla de la entrega: otra persona descarga el proyecto, sigue **solo el README** y la aplicación debe arrancar. Se hicieron dos pruebas el 2026-10-29 con la versión de `main` de ese día, en modo **local** (Qwen2.5-3B, modo Rápido), con un audio sintético propio. No se entregó nada aparte del enlace al repositorio.
+
+| | Prueba 1 (ensayo previo) | Prueba 2 (compañero) |
+|---|---|---|
+| Quién | Un agente de IA en el portátil de Harold, siguiendo solo el README | Daniel Barco en su equipo, con ayuda de un asistente de IA que siguió el README |
+| Equipo | Windows 11 Home · Intel i5-1035G1 · 7,8 GB de RAM · NVIDIA MX330 de 2 GB | macOS 26.5 · Apple M1 · 8 GB de RAM |
+| Python | No estaba: `winget install --id Python.Python.3.12 -e` (3.12.10) | Ya estaba (3.12, Homebrew) |
+| Código | ZIP de GitHub (sin Git) | `git clone`, sin cuenta |
+| Arranque | `python iniciar.py` | `./run.sh` |
+| Menú | 1 Local · Preciso: no · búsqueda semántica: sí | Igual |
+| **¿Levantó?** | **Sí** | **Sí** |
+
+| Tramo | Windows | Mac |
+|---|---|---|
+| A. Del README al inicio de la descarga | 9 min 22 s (Python ~2 min, pip ~3,5 min) | 2 min 10 s (`.venv` y dependencias ~1 min) |
+| B. Descarga de modelos | 12 min 22 s | 2 min 53 s |
+| C. Fin de la descarga → aplicación abierta | ~20 s | ~2 s |
+| **Total hasta ver la aplicación** | **~22 min** | **~5 min** |
+| Analizar una llamada (Rápido) | 17 min 31 s para 36 s de audio (~11 min sin la descarga oculta del hallazgo 1) | 9 min 33 s para 87 s de audio (transcripción ~5 min, IA 25,7 s) |
+| Pestaña Trazas | qwen2.5-3b · local · 263,9 s · 507 → 58 tokens, y 14,7 s · 419 → 60 tokens | qwen2.5-3b · local · 25,7 s · 629 → 33 tokens |
+
+**Frente a la regla de 5 minutos:** en el Mac, con Python ya instalado, se cumple justo (~5 min). En el portátil Windows solo con CPU no: instalar Python y descargar los modelos con una conexión lenta se llevan casi todo el tiempo. La aplicación en sí arranca en segundos en los dos.
+
+### Qué encontraron y qué se hizo
+
+| # | Hallazgo | Dónde | Estado |
+|---|---|---|---|
+| 1 | El instalador bajaba Whisper `medium`, pero la aplicación usa `large-v3` (`settings.toml`): el primer análisis descargaba 2,9 GB sin avisar y necesitaba internet, aunque el README promete «sin internet al usar» | Windows (confirmado); Mac (aviso de HF Hub durante el análisis) | **Corregido:** `scripts/descargar_modelos.py` baja el modelo de `settings.toml`; tamaños reales en el menú y el README (~5 GB local, ~3,2 GB solo voz) |
+| 2 | El README decía que el repositorio es privado | Ambos | **Corregido:** es público |
+| 3 | El ZIP no se descomprimía por el límite de 260 caracteres de las rutas de Windows | Windows | **Documentado:** ruta corta (`C:\gdl`) en el inicio rápido y en Problemas frecuentes |
+| 4 | No decía cómo descargar el proyecto | Windows | **Corregido:** Download ZIP o `git clone` |
+| 5 | Instalar Python: winget solo aparecía en la sección manual; `python` abría la Microsoft Store; en macOS el comando es `python3` | Ambos | **Corregido** en el inicio rápido |
+| 6 | Dos preguntas del menú sin documentar | Ambos | **Corregido:** tabla con los valores por defecto |
+| 7 | La descarga de Qwen (~2 GB) no muestra progreso y parece colgada | Mac | **Documentado**; la barra de progreso queda pendiente |
+| 8 | «Menos de 1 min por llamada» no se cumple en CPU | Ambos | **Documentado:** tiempos medidos en el README; la tarjeta se refiere solo a la IA |
+| 9 | `Iniciar.bat` e `Iniciar_Auditoria.bat` sin explicar; «Uso diario» solo para Windows | Ambos | **Corregido:** son el mismo lanzador; se añadió `./run.sh` |
+| 10 | Los contadores de Resultados marcan 0 con 1 llamada «Para revisar» | Mac | **Pendiente** de revisar |
+| 11 | La GPU NVIDIA no se usó: el instalador baja llama.cpp para CPU | Windows | **Pendiente** |
+
+**Resultado de la auditoría con el audio sintético:** las dos llamadas quedaron como «Motivo sin identificar», y en el Mac P1 (saludo) salió 0 aunque la asesora dijo la entidad y su nombre. Con voces sintéticas (en Windows solo había una voz en inglés) esto no mide la calidad del sistema; la calidad se mide en §1 con los casos dorados.
+
+**Límites de la prueba.** Las dos se hicieron con apoyo de un asistente de IA que leyó el README y manejó la consola, y el audio se cargó con un script porque el asistente no puede arrastrar archivos. Demuestran que el README basta para instalar y usar la aplicación en dos sistemas operativos distintos; no miden la usabilidad para un auditor sin experiencia técnica.
