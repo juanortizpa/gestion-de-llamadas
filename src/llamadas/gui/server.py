@@ -21,7 +21,7 @@ from ..config import ROOT, load_settings
 from ..export import collect, export_xlsx
 from ..jobs import AUDIO_EXT, JobManager, forget, incoming_dir, store_dir
 from ..llm import make_llm
-from .. import feedback, notify, vocab
+from .. import feedback, notify, trace, vocab
 from ..review import CODES, final_view, load_review, save_review, ui_state
 
 STATIC = Path(__file__).parent / "static"
@@ -206,6 +206,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(feedback.list_all(S))
         if p == "/api/vocab":
             return self._json(vocab.state(S))
+        if p == "/api/trazas":
+            q = parse_qs(u.query)
+            evs = trace.events(min(int(q.get("limit", ["100"])[0] or 100), trace.MAX_EVENTS))
+            return self._json({"eventos": evs, "resumen": trace.summary(evs)})
         if p == "/api/chat/status":
             return self._json(chat_engine().status(_engine_arg(parse_qs(u.query).get("engine", [None])[0])))
         if p == "/api/export":
@@ -237,6 +241,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._misc(p)
         if p.startswith("/api/vocab/"):
             return self._vocab(p[len("/api/vocab/"):])
+        if p == "/api/trazas/limpiar":
+            trace.clear()
+            return self._json({"ok": True})
         if p == "/api/cancel":
             JOBS.cancel()
             return self._json({"ok": True})
@@ -325,8 +332,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Accel-Buffering", "no")
         self.end_headers()
         gen = chat_engine().ask_stream(str(d.get("question", "")), ctx, hist, engine=_engine_arg(d.get("engine")))
+        seen: dict = {"route": "", "sources": []}
         try:
             for ev in gen:
+                if ev["type"] == "route":
+                    seen["route"] = ev["route"]
+                elif ev["type"] == "sources":
+                    seen["sources"] = ev["sources"]
+                elif ev["type"] == "done":
+                    trace.chat_summary(str(d.get("question", "")), seen["route"], ev["stats"], seen["sources"], ev["warnings"])
                 self.wfile.write(json.dumps(ev, ensure_ascii=False).encode("utf-8") + NL)
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -361,6 +375,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def run(port: int = 8765, open_browser: bool = True) -> None:
     S.data_dir.mkdir(parents=True, exist_ok=True)
+    trace.configure(S)
     notify.start_background(S)
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{port}/"

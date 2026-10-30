@@ -139,6 +139,7 @@ function show(view) {
   if (view === "comentarios" && typeof initComentarios === "function") initComentarios();
   if (view === "config") { renderConfig(); if (typeof initVocab === "function") initVocab(); if (typeof initMail === "function") initMail(); }
   if (view === "asistente") initChat();
+  if (view === "trazas" && typeof initTrazas === "function") initTrazas();
 }
 $("#tabs").onclick = e => { const b = e.target.closest(".tab"); if (!b) return; if (b.dataset.view === "resultados") FOCUS = null; show(b.dataset.view); };
 /* «Ver resultados» lleva solo a las llamadas del último análisis; si fue una, la abre directamente */

@@ -18,6 +18,7 @@ from typing import Callable, Iterator
 
 from rapidfuzz import fuzz
 
+from .. import trace
 from ..config import Settings, load_settings
 from ..llm import make_llm
 from ..textutil import normalize
@@ -42,7 +43,7 @@ class Generator:
     Externo (Groq/Gemini): no consume RAM ni CPU de este equipo, asi que tampoco espera a que termine un lote de analisis."""
 
     def __init__(self, settings: Settings, server=None, engine: str | None = None):
-        self.server = server or make_llm(settings, settings["chat"]["mode"], engine)
+        self.server = server or trace.wrap(make_llm(settings, settings["chat"]["mode"], engine))
         self.remote = getattr(self.server, "provider", None) is not None
         self.label = "externa" if self.remote else "local"
         self._last = 0.0

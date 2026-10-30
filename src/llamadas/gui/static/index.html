@@ -15,6 +15,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
 <link rel="stylesheet" href="/static/chat.css">
 <link rel="stylesheet" href="/static/vocab.css">
 <link rel="stylesheet" href="/static/extras.css">
+<link rel="stylesheet" href="/static/trazas.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -50,6 +51,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
     <button class="tab" data-view="quejas"><b>3</b> Quejas</button>
     <button class="tab" data-view="comentarios"><svg class="i"><use href="#i-bulb"/></svg> Comentarios</button>
     <button class="tab" data-view="asistente"><svg class="i"><use href="#i-chat"/></svg> Asistente</button>
+    <button class="tab" data-view="trazas"><svg class="i"><use href="#i-spark"/></svg> Trazas</button>
     <button class="tab" data-view="config"><svg class="i"><use href="#i-gear"/></svg> Configuración</button>
   </nav>
   <div class="top-actions">
@@ -206,6 +208,22 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
         <button class="btn danger" id="chatStop" type="button" hidden>Detener</button>
       </form>
       <p class="hint"><svg class="i"><use href="#i-shield"/></svg> Los números largos (documentos, teléfonos) se enmascaran antes de buscar. La conversación no se guarda: al cerrar la pestaña se borra.</p>
+    </div>
+  </section>
+
+  <!-- ============ TRAZAS DE LA IA ============ -->
+  <section id="view-trazas" class="view">
+    <div class="card" style="--i:0">
+      <div class="trz-head">
+        <div><h2>Trazas de la IA</h2><p>Cada vez que el sistema consulta a la IA queda aquí: qué modelo, cuántos segundos y tokens, qué citas se aceptaron (verificadas en la transcripción) y cuáles se descartaron, y qué falló. Todo lo demás (reglas, conteos, notas) se calcula con código y no aparece.</p></div>
+        <button class="btn" id="trzClear" type="button"><svg class="i"><use href="#i-trash"/></svg> Limpiar</button>
+      </div>
+      <div class="trz-kpis" id="trzKpis"></div>
+      <div class="trz-wrap"><table class="trz-table">
+        <thead><tr><th>Hora</th><th>Qué se pidió</th><th>Modelo</th><th>Segundos</th><th>Tokens (entrada → salida)</th><th>Resultado</th></tr></thead>
+        <tbody id="trzBody"></tbody>
+      </table></div>
+      <p class="hint" id="trzEmpty" hidden>Aún no hay trazas. Analice una llamada con IA o haga una pregunta abierta en el Asistente y aparecerán aquí.</p>
     </div>
   </section>
 
@@ -378,5 +396,6 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
 <script src="/static/chat.js"></script>
 <script src="/static/vocab.js"></script>
 <script src="/static/extras.js"></script>
+<script src="/static/trazas.js"></script>
 </body>
 </html>

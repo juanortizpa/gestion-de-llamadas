@@ -12,6 +12,7 @@ from pathlib import Path
 from .audio import parse_filename, sha256_file
 from .audit import audit_transcript, save_audit
 from .auditor import classify_completion, resolve_with_llm
+from . import trace
 from .config import Settings, load_settings
 from .llm import LlamaServer, make_llm
 from .pipeline import process_file, save_result
@@ -101,7 +102,7 @@ class JobManager:
         server = None
         try:
             if use_llm:
-                server = make_llm(s, mode, engine)
+                server = trace.wrap(make_llm(s, mode, engine))     # cada llamada a la IA queda en la pestana «Trazas»
                 ext = getattr(server, "provider", None) is not None       # True si es una API externa
                 kind = "externa" if ext else "local"
                 if server.available():
@@ -179,12 +180,14 @@ class JobManager:
         save_audit(au, s)
         if server is not None and au.get("criteria") and not au.get("auto_discard"):
             self._stage("llm")
+            trace.CALL_ID.set(cid)
             try:
                 au = classify_completion(au, tr, server, s)   # ¿finalizó, se cortó o está incompleta?
                 save_audit(au, s)
                 if not au.get("auto_discard"):                # si quedó descartada no se gasta IA en calificarla
                     au = resolve_with_llm(au, tr, server, s)
                     save_audit(au, s)
+                trace.audit_summary(cid, au)
             except Exception as e:
                 self.state["errors"].append(f"{cid}: la IA falló, quedan pendientes ({e})")
         if au.get("auto_discard"):
