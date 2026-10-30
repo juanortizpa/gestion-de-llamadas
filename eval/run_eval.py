@@ -72,7 +72,7 @@ class Meter:
         return ((pt or 0) * self.price.get("input_per_m", 0) + (ct or 0) * self.price.get("output_per_m", 0)) / 1e6
 
     def _wait(self, attempt: int, e: Exception) -> bool:
-        if "429" in str(e) and attempt < self.retries:
+        if "429" in str(e) and "cuota" not in str(e) and attempt < self.retries:
             self.rate_limited += 1
             pausa = 8 * 2 ** attempt
             time.sleep(pausa)

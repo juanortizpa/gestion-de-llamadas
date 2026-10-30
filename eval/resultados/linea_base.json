@@ -45,7 +45,7 @@
  },
  "groq:openai/gpt-oss-120b": {
   "fecha": "2026-10-29",
-  "hora": "19:25",
+  "hora": "20:11",
   "motor": "groq",
   "modelo": "openai/gpt-oss-120b",
   "casos_auditoria": 14,
@@ -54,11 +54,11 @@
    "llamadas_ia": 42,
    "limite_429": 0,
    "latencia_ia_mediana_s": 0.8,
-   "tokens_por_llamada_mediana": 834.0,
-   "tokens_entrada_mediana": 697.0,
-   "tokens_salida_mediana": 135.5,
-   "costo_por_llamada_ia_usd_mediana": 0.000184,
-   "costo_suite_usd": 0.00882,
+   "tokens_por_llamada_mediana": 836.5,
+   "tokens_entrada_mediana": 695.0,
+   "tokens_salida_mediana": 141.0,
+   "costo_por_llamada_ia_usd_mediana": 0.000187,
+   "costo_suite_usd": 0.00864,
    "acierto_global": 0.983,
    "pendientes": 0.017,
    "acierto_ia": 1.0,
@@ -86,16 +86,16 @@
   "asistente": {
    "preguntas_con_ia": 12,
    "preguntas_fallidas": 0,
-   "latencia_total_mediana_s": 0.6,
-   "primer_token_mediana_s": 0.545,
+   "latencia_total_mediana_s": 0.62,
+   "primer_token_mediana_s": 0.548,
    "preguntas_con_espera_429": 0,
    "espera_429_total_s": 0,
    "tokens_entrada_est_mediana": 1180.0,
    "tokens_salida_est_mediana": 28.5,
    "costo_por_pregunta_usd_mediana": 0.000198,
-   "respuestas_fundadas_pct": 75.0,
+   "respuestas_fundadas_pct": 83.3,
    "respuestas_con_cita_correcta_cualquier_formato_pct": 83.3,
-   "latencia_directo_mediana_ms": 6.0
+   "latencia_directo_mediana_ms": 5.0
   }
  }
 }

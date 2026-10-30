@@ -8,32 +8,32 @@ Registro único de la entrega (Momento 2). Aquí está **qué se construyó, por
 
 ## 1. Línea base (4 cifras)
 
-Medida con **Groq · `openai/gpt-oss-120b`**, la IA configurada en `.env` (`LLM_PROVIDER=groq`). Suite de auditoría: 14 casos dorados × 3 repeticiones = 42 llamadas a la IA, el 2026-10-29 a las 19:25. Asistente: 12 preguntas abiertas con IA, misma fecha y hora.
+Medida con **Groq · `openai/gpt-oss-120b`**, la IA configurada en `.env` (`LLM_PROVIDER=groq`). Suite de auditoría: 14 casos dorados × 3 repeticiones = 42 llamadas a la IA, el 2026-10-29 a las 20:11. Asistente: 12 preguntas abiertas con IA, misma corrida. (Esa corrida ya incluye la corrección de las citas `【n】`; la de «llamada cortada» y el reintento ante 429 se hicieron después, ver §4.)
 
 | # | Cifra | Mediana | n | Fecha |
 |---|---|---|---|---|
-| 1 | **Latencia de la IA por llamada** (auditoría) | **0,8 s** (mín. 0,5 · p90 1,1 · máx. 1,4) | 42 llamadas | 2026-10-29 |
-| 2 | **Tokens por llamada** (entrada + salida) | **834** (697 entrada + 135,5 salida; rango 664–1.231) | 42 llamadas | 2026-10-29 |
+| 1 | **Latencia de la IA por llamada** (auditoría) | **0,8 s** (mín. 0,5 · p90 1,1 · máx. 1,5) | 42 llamadas | 2026-10-29 |
+| 2 | **Tokens por llamada** (entrada + salida) | **836,5** (695 entrada + 141 salida; rango 717–973) | 42 llamadas | 2026-10-29 |
 | 3 | **Acierto contra los casos dorados** | **98,3 %** de los criterios (118 de 120); la IA acertó **100 %** de sus respuestas (39 de 39) | 120 criterios por corrida (12 casos × 10) × 3 corridas; mediana de las corridas | 2026-10-29 |
-| 4 | **Latencia del Asistente** (pregunta abierta, de la pregunta al final de la respuesta) | **0,60 s** (primer token 0,55 s) | 12 preguntas | 2026-10-29 |
+| 4 | **Latencia del Asistente** (pregunta abierta, de la pregunta al final de la respuesta) | **0,62 s** (primer token 0,55 s) | 12 preguntas | 2026-10-29 |
 
 Cifras que acompañan a las cuatro:
 
 | Cifra | Valor |
 |---|---|
-| Costo estimado por llamada a la IA (mediana) | **US$ 0,000184** (tarifa Groq: US$ 0,15 entrada / 0,60 salida por millón de tokens, consultada el 2026-10-29). La suite completa de 42 llamadas costó **US$ 0,0088** |
+| Costo estimado por llamada a la IA (mediana) | **US$ 0,000187** (tarifa Groq: US$ 0,15 entrada / 0,60 salida por millón de tokens, consultada el 2026-10-29). La suite completa de 42 llamadas costó **US$ 0,0086** |
 | Costo estimado por pregunta del Asistente (mediana) | US$ 0,000198 (≈ 1.180 tokens de entrada y 29 de salida, **estimados**: el streaming no devuelve `usage`) |
-| Pregunta del Asistente que se responde sin IA (conteos, rankings, listas) | **6 ms** (mediana, 3 preguntas) |
-| Acierto del cierre de la llamada (finalizada / cortada / incompleta) | 92,9 % (39 de 42): falla siempre el mismo caso, ver hallazgo 4 |
+| Pregunta del Asistente que se responde sin IA (conteos, rankings, listas) | **5 ms** (mediana, 3 preguntas) |
+| Acierto del cierre de la llamada (finalizada / cortada / incompleta) | 92,9 % (39 de 42): fallaba siempre el mismo caso (llamada cortada); corregido después, ver hallazgo 4 |
 | Criterios que quedaron pendientes para el humano | 1,7 % (2 de 120): son los dos casos donde la IA dijo «no hay evidencia» y, por diseño, un «no» de la IA nunca fija 0 |
 
 **Cómo se definió «acierto»:** de cada caso se decide *por construcción* qué criterios deben salir 1 y cuáles 0 (p. ej. a la llamada buena se le quita la pregunta «¿necesita algo más?» → Z2 debe salir 0). Un criterio acierta si el sistema (reglas + IA, antes de la revisión humana) da el mismo valor; **un criterio que queda pendiente cuenta como no acertado**. El «acierto de la IA» mide solo lo que la IA respondió: acierta si dijo «sí» con una cita verificada cuando debía, o no encontró evidencia cuando no la había. La nota que ve el usuario siempre pasa además por una persona.
 
-### Comparación con la IA local (misma suite, 1 repetición)
+### Comparación con la IA local (misma suite, 1 repetición, medida a las 19:25–19:26, antes de las correcciones de §4)
 
 | Motor | Latencia/llamada | Tokens/llamada | Acierto global | Acierto de la IA | Cierre | Costo |
 |---|---|---|---|---|---|---|
-| Groq `gpt-oss-120b` (3 rep.) | 0,8 s | 834 | 98,3 % | 100 % | 92,9 % | US$ 0,000184 / llamada |
+| Groq `gpt-oss-120b` (3 rep.) | 0,8 s | 836,5 | 98,3 % | 100 % | 92,9 % | US$ 0,000187 / llamada |
 | Local Qwen2.5-**7B** Q4 (RTX 3050 6 GB) | 2,5 s | 579 | 98,3 % | 100 % (13 de 13) | 85,7 % | US$ 0 |
 | Local Qwen2.5-**3B** Q4 (RTX 3050 6 GB) | 0,9 s | 558 | 95,0 % | 69,2 % (9 de 13) | 85,7 % | US$ 0 |
 
@@ -105,7 +105,7 @@ Corpus sintético: 14 llamadas con temas distintos (claustrofobia, cancelación,
 
 **Qué dicen los fallos** (4 de 20):
 1. *R03 «estacionamiento» y R08 «seguro médico»:* la transcripción dice «parqueadero» y «EPS». No comparten ninguna palabra; es el caso para el que sirven los vectores y es la razón de mantener el modo híbrido.
-2. *R06 «preparación…» y R04 «esperar dos horas»:* el enrutador interpreta «preparación» como el criterio Z1 y «esperar» como G1 y **sube la puntuación** de los fragmentos de criterio de *todas* las llamadas (×1,4), que desplazan a la transcripción donde está la respuesta. Es un defecto real del Asistente que esta medición dejó a la vista (hallazgo 3).
+2. *R06 «preparación…» y R04 «esperar dos horas»:* el enrutador interpreta «preparación» como el criterio Z1 y «esperar» como G1 y **sube la puntuación** de los fragmentos de criterio de *todas* las llamadas (×1,4), que desplazan a la transcripción donde está la respuesta. Es un defecto real del Asistente que esta medición dejó a la vista. Sigue sin corregir.
 
 **Límites de esta cifra.** 14 llamadas y 20 preguntas son una muestra pequeña (cada pregunta pesa 5 puntos) y con pocos distractores: con cientos de llamadas reales el resultado será peor, no mejor. Sirve como línea base para comparar cambios, no como promesa de calidad en producción.
 
@@ -115,9 +115,9 @@ Corpus sintético: 14 llamadas con temas distintos (claustrofobia, cancelación,
 
 1. **La IA interviene poco, y eso es lo diseñado.** En 12 de los 14 casos lo único que las reglas dejan a la IA es C1 (9 de 10 criterios se resuelven con código). La IA no se usa «porque sí»: se usa donde el código no puede decidir.
 2. **El validador de citas funciona.** El 3B local inventó una cita y fue descartada. Con Groq, 33 respuestas «sí» llevaron cita verificada y ninguna fue descartada.
-3. **El Asistente pierde una cita válida con `gpt-oss`:** el modelo escribe las citas como `【1】` (corchetes de ancho completo) y el verificador solo reconoce `[1]`; avisa «la respuesta no cita ningún fragmento» aunque sí citó. Respuestas con la llamada correcta citada: **75 %** como las reconoce el producto frente a **83,3 %** aceptando ambos formatos. Arreglo de una línea en `ChatEngine.verify` (normalizar `【n】` → `[n]`); no se tocó por estar fuera del alcance de esta tarea.
-4. **«Llamada cortada a media frase» no se detecta** (caso `A13_cortada`, 3 de 3 corridas, y también con 3B y 7B): la IA responde «finalizada». Es el único fallo de cierre con Groq (92,9 %). Pendiente: reforzar `classify_completion` o añadir una regla (última frase sin cierre).
-5. **Límite de peticiones (429).** En una corrida previa con solo 1 s de pausa entre casos hubo **16 respuestas 429** en 42 llamadas (cifra de consola, ese CSV no se conservó); con 4 s de pausa, **0**. El script de medición reintenta con espera, pero la aplicación (`RemoteLLM`) **no reintenta**: ante un 429 muestra un mensaje legible y deja los criterios pendientes. Pendiente: reintento con espera exponencial en el proveedor.
+3. **Citas `【1】` del Asistente: corregido.** `gpt-oss` escribe las citas con corchetes de ancho completo y el verificador solo reconocía `[1]`: avisaba «no cita ningún fragmento» aunque sí citó. `ChatEngine.verify` ahora las normaliza a `[1]` (y quita las que apuntan a un fragmento inexistente). Medido: respuestas con la llamada correcta citada **75 % → 83,3 %** (ya igual al conteo aceptando ambos formatos).
+4. **Llamada cortada a media frase: corregido.** Había dos causas: (a) la regla de despedida daba por buena una despedida **a mitad de llamada** (un «con gusto, señora» en el turno 3) y saltaba la consulta a la IA; ahora la despedida solo vale si está en los últimos 3 turnos y la llamada no termina sin punto final; (b) a la IA no se le decía que la última frase quedó abierta, y ahora el prompt lo incluye. Resultado en el caso `A13_cortada`: antes «finalizada» en 3 de 3 corridas; ahora `cortada`, con la cita de la última frase verificada (probado con una llamada real a Groq; la suite completa **no se pudo repetir** por la cuota diaria, ver hallazgo 5). Hay pruebas unitarias (`tests/unit/test_defectos_demo.py`).
+5. **Límites de Groq (429): reintento añadido, y una advertencia para la demo.** `RemoteLLM` ahora reintenta ante un 429 con espera creciente (4 s, 8 s; `retries` y `retry_wait_s` en `settings.toml`). Si el proveedor pide esperar más de 20 s no reintenta, porque es una cuota agotada, y lo dice: «La API externa agotó su cuota (429): vuelve a estar disponible en unos N min». Esto no es teórico: **el plan gratuito de Groq permite 200.000 tokens por día para este modelo y la propia evaluación lo agotó** (≈ 35.000 tokens por corrida completa de auditoría, más las pruebas). **Para la demo hay que llegar con la cuota intacta** (o con la IA local como respaldo): no repetir la suite el mismo día. Antes de este cambio, con 1 s de pausa entre casos hubo 16 respuestas 429 en 42 llamadas; con 4 s, ninguna.
 6. **Tokens del Asistente estimados.** El streaming no devuelve `usage`; se estima con 3,6 caracteres por token. Los tokens de la auditoría sí son los reales que informa el proveedor.
 
 ---

@@ -75,6 +75,8 @@ quote_min_ratio = 88              # una cita del LLM solo vale si aparece (aprox
 groq_model = "openai/gpt-oss-120b"   # llama-3.3-70b-versatile ya no esta en el catalogo de Groq (404, 2026-10-17)
 gemini_model = "gemini-1.5-flash"
 timeout_s = 60                    # limite por peticion a la API externa
+retries = 2                       # reintentos ante 429 (limite de peticiones del proveedor)
+retry_wait_s = 4                  # espera antes del 1.er reintento; se duplica (4 s, 8 s)
 
 [review]
 pass_percent = 80                 # < 80 % = No aprobado (dato del usuario)

@@ -303,6 +303,7 @@ class ChatEngine:
         """Revisa la respuesta: citas [n] validas y frases entre comillas que existan en los fragmentos."""
         n_max, warnings = len(hits), []
         cited: set[int] = set()
+        text = re.sub(r"[\u202f\u00a0 ]*[【［](\d{1,3})[】］]", r" [\1]", text)       # gpt-oss escribe las citas como 【1】
 
         def fix(m: re.Match) -> str:
             n = int(m.group(1))
