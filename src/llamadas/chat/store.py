@@ -8,6 +8,8 @@
   embcache    vectores por hash de contenido: reindexar no vuelve a calcular lo que no cambio
 
 La busqueda vectorial es KNN dentro del mismo archivo SQLite: no hay servidor aparte ni matriz en memoria.
+Si este Python no puede cargar extensiones de SQLite (p. ej. el de python.org en macOS), los vectores quedan solo en
+embcache y el KNN se calcula con numpy: mismo resultado, sin la extension.
 Todo vive en data/ (fuera de git) y se borra junto con la llamada (privacidad).
 """
 from __future__ import annotations
@@ -16,6 +18,7 @@ import json
 import sqlite3
 import threading
 from contextlib import contextmanager
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -41,12 +44,29 @@ CALL_COLS = ["call_id", "sig", "date", "time", "agent", "auditor", "type", "queu
              "estado_ui", "e1", "discarded", "reviewed", "pending", "criteria", "n_holds", "longest_hold", "analyzed_at"]
 
 
+@lru_cache(maxsize=1)
+def vec_extension_available() -> bool:
+    """sqlite-vec exige que Python permita cargar extensiones de SQLite. El Python oficial de python.org para macOS
+    viene compilado sin esa opcion (no existe enable_load_extension): en ese caso el KNN se hace en numpy."""
+    try:
+        c = sqlite3.connect(":memory:")
+        try:
+            c.enable_load_extension(True)
+            sqlite_vec.load(c)
+            return True
+        finally:
+            c.close()
+    except (AttributeError, sqlite3.Error):
+        return False
+
+
 class Store:
-    def __init__(self, settings: Settings | None = None, path: Path | None = None):
+    def __init__(self, settings: Settings | None = None, path: Path | None = None, native: bool | None = None):
         s = settings or load_settings()
         self.path = path or (s.data_dir / "chat" / "index.db")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
+        self.native = vec_extension_available() if native is None else native  # False: KNN en numpy sobre embcache
         with self.conn() as c:
             c.executescript(SCHEMA)
             self._migrate_legacy_vectors(c)
@@ -55,9 +75,10 @@ class Store:
     def conn(self):
         c = sqlite3.connect(self.path, timeout=30)
         c.row_factory = sqlite3.Row
-        c.enable_load_extension(True)
-        sqlite_vec.load(c)
-        c.enable_load_extension(False)
+        if self.native:
+            c.enable_load_extension(True)
+            sqlite_vec.load(c)
+            c.enable_load_extension(False)
         c.execute("PRAGMA journal_mode=WAL")
         try:
             yield c
@@ -70,20 +91,22 @@ class Store:
     def _has_vec(c: sqlite3.Connection) -> bool:
         return c.execute("SELECT 1 FROM sqlite_master WHERE name=?", (VEC_TABLE,)).fetchone() is not None
 
-    @staticmethod
-    def _vec_dim(c: sqlite3.Connection) -> int:
-        if not Store._has_vec(c):
-            return 0
-        return int(c.execute("SELECT v FROM meta WHERE k='vec_dim'").fetchone()["v"])
+    def _vec_dim(self, c: sqlite3.Connection) -> int:
+        """Dimension de los vectores del indice (0 = todavia ninguno). Con la extension, solo si existe la tabla vec0."""
+        r = c.execute("SELECT v FROM meta WHERE k='vec_dim'").fetchone()
+        return int(r["v"]) if r and (not self.native or self._has_vec(c)) else 0
 
-    @staticmethod
-    def _ensure_vec(c: sqlite3.Connection, dim: int) -> None:
-        if not Store._has_vec(c):
-            c.execute(f"CREATE VIRTUAL TABLE {VEC_TABLE} USING vec0(chunk_id INTEGER PRIMARY KEY, embedding float[{dim}] distance_metric=cosine)")
-            c.execute("INSERT INTO meta(k,v) VALUES('vec_dim', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", (str(dim),))
+    def _ensure_vec(self, c: sqlite3.Connection, dim: int) -> None:
+        if self._vec_dim(c):
+            return
+        if self.native:
+            c.execute(f"CREATE VIRTUAL TABLE IF NOT EXISTS {VEC_TABLE} USING vec0(chunk_id INTEGER PRIMARY KEY, embedding float[{dim}] distance_metric=cosine)")
+        c.execute("INSERT INTO meta(k,v) VALUES('vec_dim', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", (str(dim),))
 
     def _migrate_legacy_vectors(self, c: sqlite3.Connection) -> None:
         """Indices anteriores guardaban los vectores en una tabla `vecs` (float16). Se pasan a vec_chunks una sola vez."""
+        if not self.native:  # la migracion necesita la extension; mientras tanto la tabla vieja no estorba
+            return
         if c.execute("SELECT 1 FROM sqlite_master WHERE name='vecs'").fetchone() is None:
             return
         rows = c.execute("SELECT chunk_id, vec FROM vecs").fetchall()
@@ -143,18 +166,17 @@ class Store:
                 if vectors is not None and ch["hash"] in vectors:
                     vec = np.asarray(vectors[ch["hash"]], dtype=np.float32)
                     self._ensure_vec(c, len(vec))
-                    if len(vec) == self._vec_dim(c):      # un modelo de otra dimension no se mezcla
+                    if self.native and len(vec) == self._vec_dim(c):      # un modelo de otra dimension no se mezcla
                         c.execute(f"INSERT INTO {VEC_TABLE}(chunk_id, embedding) VALUES(?,?)", (cid, vec.tobytes()))
                     blob = np.asarray(vectors[ch["hash"]], dtype=np.float16).tobytes()
                     c.execute("INSERT OR REPLACE INTO embcache(hash, vec) VALUES(?,?)", (ch["hash"], blob))
 
-    @staticmethod
-    def _delete(c: sqlite3.Connection, call_id: str) -> None:
+    def _delete(self, c: sqlite3.Connection, call_id: str) -> None:
         ids = [r[0] for r in c.execute("SELECT id FROM chunks WHERE call_id=?", (call_id,))]
         for i in range(0, len(ids), 500):
             q = ",".join("?" * len(ids[i:i + 500]))
             c.execute(f"DELETE FROM fts WHERE rowid IN ({q})", ids[i:i + 500])
-            if Store._has_vec(c):
+            if self.native and Store._has_vec(c):
                 c.execute(f"DELETE FROM {VEC_TABLE} WHERE chunk_id IN ({q})", ids[i:i + 500])
         c.execute("DELETE FROM chunks WHERE call_id=?", (call_id,))
         c.execute("DELETE FROM calls WHERE call_id=?", (call_id,))
@@ -176,9 +198,9 @@ class Store:
         with self.lock, self.conn() as c:
             for t in ("calls", "chunks", "fts", "embcache"):
                 c.execute(f"DELETE FROM {t}")
-            if self._has_vec(c):
+            if self.native and self._has_vec(c):
                 c.execute(f"DROP TABLE {VEC_TABLE}")          # la dimension la fija el proximo modelo que indexe
-                c.execute("DELETE FROM meta WHERE k='vec_dim'")
+            c.execute("DELETE FROM meta WHERE k='vec_dim'")
         self.bump()
 
     # ---------------------------------------------------------------- lectura
@@ -194,7 +216,15 @@ class Store:
         with self.conn() as c:
             return {"calls": c.execute("SELECT COUNT(*) FROM calls").fetchone()[0],
                     "chunks": c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0],
-                    "vectors": c.execute(f"SELECT COUNT(*) FROM {VEC_TABLE}").fetchone()[0] if self._has_vec(c) else 0}
+                    "vectors": self._count_vectors(c)}
+
+    def _count_vectors(self, c: sqlite3.Connection) -> int:
+        if self.native:
+            return c.execute(f"SELECT COUNT(*) FROM {VEC_TABLE}").fetchone()[0] if self._has_vec(c) else 0
+        dim = self._vec_dim(c)  # sin extension: fragmentos cuyo vector (en embcache, float16) tiene la dimension del indice
+        if not dim:
+            return 0
+        return c.execute("SELECT COUNT(*) FROM chunks c JOIN embcache e ON e.hash=c.hash WHERE length(e.vec)=?", (dim * 2,)).fetchone()[0]
 
     def chunks_by_ids(self, ids: list[int]) -> dict[int, dict]:
         out: dict[int, dict] = {}
@@ -231,11 +261,26 @@ class Store:
         despues del KNN: se piden mas vecinos (x4) para que el filtro no deje la lista vacia."""
         qv = np.asarray(qvec, dtype=np.float32)
         with self.conn() as c:
-            if not self._has_vec(c) or self._vec_dim(c) != len(qv):   # sin vectores o modelo distinto: no se mezcla
+            if self._vec_dim(c) != len(qv):   # sin vectores o modelo distinto: no se mezcla
                 return []
+            if not self.native:
+                return self._dense_numpy(c, qv, allowed, limit)
             k = limit * 4 if allowed is not None else limit
             rows = c.execute(f"SELECT v.chunk_id AS id, v.distance AS d, c.call_id AS call_id FROM {VEC_TABLE} v "
                              f"JOIN chunks c ON c.id=v.chunk_id WHERE v.embedding MATCH ? AND k = ? ORDER BY v.distance",
                              (qv.tobytes(), k)).fetchall()
         out = [(r["id"], 1.0 - float(r["d"])) for r in rows if allowed is None or r["call_id"] in allowed]
         return out[:limit]
+
+    @staticmethod
+    def _dense_numpy(c: sqlite3.Connection, qv: np.ndarray, allowed: set[str] | None, limit: int) -> list[tuple[int, float]]:
+        """KNN por fuerza bruta sobre embcache, para cuando no hay extension sqlite-vec. Mismo coseno que vec0."""
+        rows = c.execute("SELECT c.id AS id, c.call_id AS call_id, e.vec AS vec FROM chunks c JOIN embcache e ON e.hash=c.hash "
+                         "WHERE length(e.vec)=?", (len(qv) * 2,)).fetchall()
+        rows = [r for r in rows if allowed is None or r["call_id"] in allowed]
+        if not rows:
+            return []
+        m = np.stack([np.frombuffer(r["vec"], dtype=np.float16) for r in rows]).astype(np.float32)
+        m /= np.maximum(np.linalg.norm(m, axis=1, keepdims=True), 1e-12)
+        sims = m @ (qv / max(float(np.linalg.norm(qv)), 1e-12))
+        return [(rows[i]["id"], float(sims[i])) for i in np.argsort(-sims)[:limit]]
