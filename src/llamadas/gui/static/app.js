@@ -95,10 +95,12 @@ document.addEventListener("pointermove", e => {
 }, { passive: true });
 
 function countUp(node, to, suffix = "") {
-  if (typeof to !== "number" || PREFS.motion === "off") { node.textContent = to + (typeof to === "number" ? suffix : ""); return; }
+  const final = to + (typeof to === "number" ? suffix : "");
+  if (typeof to !== "number" || PREFS.motion === "off" || document.hidden) { node.textContent = final; return; }
   const t0 = performance.now(), dur = 700;
   const step = now => { const k = Math.min(1, (now - t0) / dur), v = Math.round(to * (1 - Math.pow(1 - k, 3))); node.textContent = v + suffix; if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
+  setTimeout(() => { node.textContent = final; }, dur + 100); // si el navegador pausa la animación (pestaña en segundo plano), el contador quedaba en 0
 }
 
 /* Notas técnicas del motor -> texto entendible */
