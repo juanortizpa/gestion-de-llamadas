@@ -16,6 +16,8 @@ from pathlib import Path
 
 from .config import Settings, load_settings
 
+MAX_RETRY_WAIT_S = 20      # si el proveedor pide esperar mas que esto (cuota diaria agotada) no se reintenta
+
 PROVIDERS = {
     "groq": {"key": "GROQ_API_KEY", "model": "groq_model", "name": "Groq (GPT-OSS 120B)"},
     "gemini": {"key": "GEMINI_API_KEY", "model": "gemini_model", "name": "Google Gemini 1.5 Flash"},
@@ -27,11 +29,12 @@ def find_llama_server(models_dir: Path, configured: str = "") -> Path:
     (llama-server.exe en Windows, llama-server en Linux/macOS; cada release lo deja en una carpeta distinta)."""
     if configured and (models_dir / configured).exists():
         return models_dir / configured
-    base = models_dir / "llm" / "llama.cpp"
-    for name in ("llama-server.exe", "llama-server"):
-        found = next((p for p in base.rglob(name) if p.is_file()), None) if base.exists() else None
-        if found:
-            return found
+    # llama-cuda (con GPU NVIDIA) tiene prioridad; llama.cpp es la version CPU, valida en cualquier equipo
+    for base in (models_dir / "llm" / "llama-cuda", models_dir / "llm" / "llama.cpp"):
+        for name in ("llama-server.exe", "llama-server"):
+            found = next((p for p in base.rglob(name) if p.is_file()), None) if base.exists() else None
+            if found:
+                return found
     return models_dir / (configured or "llm/llama.cpp/llama-server")
 
 
@@ -72,9 +75,10 @@ class LlamaServer:
         env = dict(os.environ)
         for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):        # Linux/macOS: las .so/.dylib de llama.cpp viven junto al ejecutable
             env[var] = str(self.exe.parent) + os.pathsep + env.get(var, "")
+        gpu = ["-ngl", str(cfg["gpu_layers"]), "-np", "1", "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0"] if cfg.get("gpu_layers", 0) and "llama-cuda" in str(self.exe) else []
         self.proc = subprocess.Popen(
             [str(self.exe), "-m", str(self.model), "-t", str(cfg["threads"]), "-c", str(self.ctx), "--port", str(self.port),
-             "--host", "127.0.0.1", "--cache-prompt", *self.extra_args],
+             "--host", "127.0.0.1", "--cache-prompt", *gpu, *self.extra_args],
             stdout=log, stderr=log, env=env, cwd=str(self.exe.parent), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         t0 = time.time()
         while time.time() - t0 < timeout_s:
@@ -176,6 +180,9 @@ class RemoteLLM:
         self.proc = None
         self.max_tokens = cfg["max_tokens"]
         self.timeout = cfg["remote"].get("timeout_s", 60)
+        self.retries = cfg["remote"].get("retries", 2)               # reintentos ante 429 (limite de peticiones por minuto)
+        self.retry_wait_s = cfg["remote"].get("retry_wait_s", 4)     # espera base: se duplica en cada reintento
+        self.retried = 0                                             # 429 absorbidos en la ultima llamada (lo muestran las trazas)
 
     @property
     def key(self) -> str:
@@ -215,10 +222,33 @@ class RemoteLLM:
                                       headers={"Content-Type": "application/json", "User-Agent": "auditoria-llamadas/0.1", **headers})
 
     @staticmethod
+    def _retry_after(e: urllib.error.HTTPError) -> float:
+        try:
+            return float(e.headers.get("Retry-After") or 0) if e.headers else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _open(self, req: urllib.request.Request):
+        """urlopen con reintento y espera si el proveedor responde 429. Otros errores salen de inmediato."""
+        self.retried = 0
+        for attempt in range(self.retries + 1):
+            try:
+                return urllib.request.urlopen(req, timeout=self.timeout)
+            except urllib.error.HTTPError as e:
+                wait = self._retry_after(e)
+                if e.code != 429 or attempt >= self.retries or wait > MAX_RETRY_WAIT_S:   # espera larga = cuota agotada: reintentar no sirve
+                    raise
+                self.retried += 1
+                time.sleep(min(15.0, max(wait, self.retry_wait_s * 2 ** attempt)))
+
+    @staticmethod
     def _fail(e: Exception) -> RuntimeError:
         """Mensaje legible, sin cuerpo de la respuesta ni cabeceras (nunca la clave)."""
         if isinstance(e, urllib.error.HTTPError):
             if e.code == 429:
+                wait = RemoteLLM._retry_after(e)
+                if wait > MAX_RETRY_WAIT_S:
+                    return RuntimeError(f"La API externa agoto su cuota (429): vuelve a estar disponible en unos {round(wait / 60)} min.")
                 return RuntimeError("La API externa limito las peticiones (429). Espere un momento e intente de nuevo.")
             if e.code == 401:
                 return RuntimeError("La API externa rechazo la clave (revise la clave en .env).")
@@ -255,7 +285,7 @@ class RemoteLLM:
         body = self._body(system, user, temperature=0, max_tokens=self.max_tokens, json_mode=True)
         t = time.time()
         try:
-            with urllib.request.urlopen(self._request(body), timeout=self.timeout) as r:
+            with self._open(self._request(body)) as r:
                 resp = json.load(r)
         except Exception as e:
             raise self._fail(e) from None
@@ -270,13 +300,13 @@ class RemoteLLM:
             data = json.loads(content)
         except ValueError:
             raise RuntimeError("La API externa devolvio un JSON invalido.") from None
-        return data, {"secs": round(time.time() - t, 1), "prompt_tokens": pt, "completion_tokens": ct}
+        return data, {"secs": round(time.time() - t, 1), "prompt_tokens": pt, "completion_tokens": ct, "retries": self.retried}
 
     def chat_stream(self, system: str, user: str, max_tokens: int = 350, temperature: float = 0.1):
         """Texto libre token a token (SSE), igual que LlamaServer.chat_stream."""
         body = self._body(system, user, temperature=temperature, max_tokens=max_tokens, json_mode=False, stream=True)
         try:
-            with urllib.request.urlopen(self._request(body, stream=True), timeout=self.timeout) as r:
+            with self._open(self._request(body, stream=True)) as r:
                 for raw in r:
                     line = raw.decode("utf-8", "replace").strip()
                     if not line.startswith("data:"):

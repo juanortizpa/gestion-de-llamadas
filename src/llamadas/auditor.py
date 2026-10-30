@@ -110,7 +110,8 @@ COMPLETION_SYSTEM = (
     "Eres un auditor de calidad de llamadas de un centro de atención en español. Respondes SOLO con JSON. "
     "Decides cómo terminó la llamada:\n"
     "- finalizada: la conversación llegó a un cierre natural (despedida, agradecimiento final o el cliente da por terminada la atención).\n"
-    "- cortada: la conversación se interrumpe de forma abrupta (frase a medias, sin despedida, se cae la línea) aunque antes fuera normal.\n"
+    "- cortada: la conversación se interrumpe de forma abrupta (frase a medias, sin despedida, se cae la línea) aunque antes fuera normal. "
+    "Si te avisan de que la última frase termina sin punto final y no hay despedida, es una señal fuerte de corte.\n"
     "- incompleta: falta una parte esencial para evaluarla (solo se oye a una de las partes, no se llega a atender la necesidad, "
     "casi no hay conversación).\n"
     "Si eliges cortada o incompleta debes dar turn_id y una CITA LITERAL (máx. 15 palabras) de la transcripción que lo justifique "
@@ -126,9 +127,18 @@ def completion_schema() -> dict:
         "required": ["estado", "turn_id", "quote", "motivo"]}
 
 
-def _farewell_detected(audit: dict) -> bool:
+def _ends_open(turns: list[dict]) -> bool:
+    """La última frase termina sin signo de cierre: la transcripción lleva puntuación final, así que su ausencia indica corte."""
+    last = (turns[-1]["text"] if turns else "").rstrip()
+    return bool(last) and last[-1] not in '.?!…»")'
+
+
+def _farewell_detected(audit: dict, turns: list[dict] | None = None) -> bool:
+    """¿Hay despedida? Con `turns`, solo vale si está entre los últimos 3 turnos (un «con gusto» a mitad de llamada no es un cierre)."""
     z2 = (audit.get("criteria") or {}).get("Z2") or {}
-    return any(s.get("id") == "despedida_cordial" and s.get("passed") is True for s in z2.get("sub_checks", []))
+    last = turns[-1]["turn_id"] if turns else None
+    return any(s.get("id") == "despedida_cordial" and s.get("passed") is True
+               and (last is None or ((s.get("evidence") or {}).get("turn_id") or 0) >= last - 2) for s in z2.get("sub_checks", []))
 
 
 def classify_completion(audit: dict, tr: dict, server: LlamaServer, settings: Settings | None = None) -> dict:
@@ -139,7 +149,7 @@ def classify_completion(audit: dict, tr: dict, server: LlamaServer, settings: Se
     if audit.get("auto_discard") or not turns:
         return audit
     speakers = {t["speaker"] for t in turns}
-    if _farewell_detected(audit) and {"ASESOR", "CLIENTE"} <= speakers:   # evidencia determinista de cierre normal
+    if _farewell_detected(audit, turns) and {"ASESOR", "CLIENTE"} <= speakers and not _ends_open(turns):   # cierre normal: hay despedida y la llamada no acaba a media frase
         audit["completion"] = {"estado": "finalizada", "source": "regla", "applied": False,
                                "motivo": "Hay despedida y se oyen las dos partes"}
         return audit
@@ -147,7 +157,8 @@ def classify_completion(audit: dict, tr: dict, server: LlamaServer, settings: Se
     lines = fmt(turns) if len(turns) <= 14 else fmt(turns[:3]) + ["[... turnos intermedios omitidos ...]"] + fmt(turns[-11:])
     head = (f"Duración de la llamada: {round(audit['call']['duration_s'])} s. Turnos: {len(turns)}. "
             f"Partes que se oyen: {', '.join(sorted(speakers))}. Despedida detectada por reglas: "
-            f"{'sí' if _farewell_detected(audit) else 'no'}.")
+            f"{'sí' if _farewell_detected(audit, turns) else 'no'}. "
+            f"La última frase termina sin punto final: {'sí' if _ends_open(turns) else 'no'}.")
     user = f"{head}\n\nTRANSCRIPCIÓN:\n" + "\n".join(lines) + "\n\n¿La llamada finalizó, se cortó o está incompleta?"
     try:
         ans, meta = server.chat_json(COMPLETION_SYSTEM, user, completion_schema())

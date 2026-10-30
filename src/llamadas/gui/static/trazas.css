@@ -1,0 +1,17 @@
+/* ---- pestaña Trazas (usa los tokens de style.css) ---- */
+.trz-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.trz-head h2{margin:0 0 4px}.trz-head p{margin:0;color:var(--mut);font-size:.92rem;max-width:70ch}
+.trz-kpis{display:flex;gap:26px;flex-wrap:wrap;margin:16px 0 12px}.trz-kpis div{display:flex;flex-direction:column}
+.trz-kpis b{font-size:1.5rem;font-variant-numeric:tabular-nums}.trz-kpis small{color:var(--mut)}.trz-kpis .bad b{color:var(--bad)}
+.trz-wrap{overflow-x:auto}
+.trz-table{width:100%;border-collapse:collapse;font-size:.88rem}
+.trz-table th{color:var(--mut);font-weight:600;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.trz-table td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+.trz-table td:first-child{white-space:nowrap;font-variant-numeric:tabular-nums}
+.trz-table td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.trz-table small{color:var(--mut)}
+.trz-res.ok{color:var(--ok)}.trz-res.bad{color:var(--bad)}.trz-res.warn{color:var(--warn)}
+.trz-table .link{background:none;border:0;padding:0;color:var(--pri);cursor:pointer;font:inherit;text-decoration:underline}
+.pill-k{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.74rem;font-weight:600;background:var(--surface-2);border:var(--border)}
+.pill-k.llm{color:var(--pri)}.pill-k.auditoria{color:var(--ok)}.pill-k.asistente{color:var(--warn)}
+.trz-det td{background:var(--surface-2)}.trz-det pre{margin:0;white-space:pre-wrap;font:inherit;font-size:.82rem;color:var(--mut)}

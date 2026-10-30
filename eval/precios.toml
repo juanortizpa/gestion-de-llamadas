@@ -1,0 +1,16 @@
+# Precio por millon de tokens (USD) que usa run_eval.py para estimar el costo. Cada proveedor/modelo en su propia tabla.
+# Si un modelo no esta aqui, el costo sale 0 (no significa que sea gratis: agregue su precio).
+
+# Groq: https://console.groq.com/docs/model/openai/gpt-oss-120b (consultado el 2026-10-29)
+[groq."openai/gpt-oss-120b"]
+input_per_m = 0.15
+output_per_m = 0.60
+
+# Local (llama.cpp en este equipo): sin costo por token. El costo real es luz y desgaste de la GPU; no se estima.
+[local."Qwen2.5-7B-Instruct-Q4_K_M.gguf"]
+input_per_m = 0.0
+output_per_m = 0.0
+
+[local."qwen2.5-3b-instruct-q4_k_m.gguf"]
+input_per_m = 0.0
+output_per_m = 0.0

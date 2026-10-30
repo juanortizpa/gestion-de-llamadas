@@ -136,8 +136,10 @@ function show(view) {
   moveGlider();
   if (view === "resultados") loadCalls(true);
   if (view === "quejas") loadQuejas(true);
-  if (view === "config") renderConfig();
+  if (view === "comentarios" && typeof initComentarios === "function") initComentarios();
+  if (view === "config") { renderConfig(); if (typeof initVocab === "function") initVocab(); if (typeof initMail === "function") initMail(); }
   if (view === "asistente") initChat();
+  if (view === "trazas" && typeof initTrazas === "function") initTrazas();
 }
 $("#tabs").onclick = e => { const b = e.target.closest(".tab"); if (!b) return; if (b.dataset.view === "resultados") FOCUS = null; show(b.dataset.view); };
 /* «Ver resultados» lleva solo a las llamadas del último análisis; si fue una, la abre directamente */
@@ -539,6 +541,7 @@ function fillQOptions() {
   o.asesores.forEach(n => $("#qAsesores").appendChild(new Option(n, n))); o.sedes.forEach(n => $("#qSedes").appendChild(new Option(n, n)));
 }
 function renderQuejas(animate) {
+  if (typeof renderQStats === "function") renderQStats(QJ.stats);
   const all = QJ.quejas, o = QJ.opciones, hoy = todayIso();
   const n = k => all.filter(q => q.estado === k).length, venc = all.filter(q => q.vencida).length;
   const mes = all.filter(q => q.estado === "cerrada" && (q.cerrada_el || "").slice(0, 7) === hoy.slice(0, 7)).length;
@@ -600,7 +603,7 @@ const qAutoPlazo = () => { const f = qIn("fecha").value || todayIso(); return ad
 function openQueja(q, sug) {
   if (!QJ.opciones) return;
   const base = q ? { ...q } : { fecha: todayIso(), canal: "llamada", categoria: "otro", prioridad: "media", estado: "abierta" };
-  if (sug) Object.assign(base, { llamada: sug.llamada, asesor: sug.asesor || "", fecha: sug.fecha || todayIso(),
+  if (sug) Object.assign(base, { categoria: sug.categoria || "otro", prioridad: sug.prioridad || "media", llamada: sug.llamada, asesor: sug.asesor || "", fecha: sug.fecha || todayIso(),
     descripcion: "Detectada en la llamada: " + sug.hallazgos.map(h => `“${h.cita}” (${fmt(h.start)})`).join(" · ") });
   QCUR = { id: base.id || null, prioridad: base.prioridad, estado: base.estado, plazoAuto: !base.plazo, hits: sug ? sug.hallazgos : null };
   QF.forEach(k => qIn(k).value = base[k] || "");

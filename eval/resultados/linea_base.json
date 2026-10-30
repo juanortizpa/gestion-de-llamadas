@@ -1,0 +1,101 @@
+{
+ "local:qwen2.5-3b-instruct-q4_k_m.gguf": {
+  "fecha": "2026-10-29",
+  "hora": "19:25",
+  "motor": "local",
+  "modelo": "qwen2.5-3b-instruct-q4_k_m.gguf",
+  "casos_auditoria": 14,
+  "auditoria": {
+   "reps": 1,
+   "llamadas_ia": 14,
+   "limite_429": 0,
+   "latencia_ia_mediana_s": 0.9,
+   "tokens_por_llamada_mediana": 558.0,
+   "tokens_entrada_mediana": 520.5,
+   "tokens_salida_mediana": 39.0,
+   "costo_por_llamada_ia_usd_mediana": 0.0,
+   "costo_suite_usd": 0.0,
+   "acierto_global": 0.95,
+   "pendientes": 0.05,
+   "acierto_ia": 0.692,
+   "acierto_cierre": 0.857
+  }
+ },
+ "local:Qwen2.5-7B-Instruct-Q4_K_M.gguf": {
+  "fecha": "2026-10-29",
+  "hora": "19:26",
+  "motor": "local",
+  "modelo": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+  "casos_auditoria": 14,
+  "auditoria": {
+   "reps": 1,
+   "llamadas_ia": 15,
+   "limite_429": 0,
+   "latencia_ia_mediana_s": 2.5,
+   "tokens_por_llamada_mediana": 579,
+   "tokens_entrada_mediana": 517,
+   "tokens_salida_mediana": 62,
+   "costo_por_llamada_ia_usd_mediana": 0.0,
+   "costo_suite_usd": 0.0,
+   "acierto_global": 0.983,
+   "pendientes": 0.017,
+   "acierto_ia": 1.0,
+   "acierto_cierre": 0.857
+  }
+ },
+ "groq:openai/gpt-oss-120b": {
+  "fecha": "2026-10-29",
+  "hora": "20:11",
+  "motor": "groq",
+  "modelo": "openai/gpt-oss-120b",
+  "casos_auditoria": 14,
+  "auditoria": {
+   "reps": 3,
+   "llamadas_ia": 42,
+   "limite_429": 0,
+   "latencia_ia_mediana_s": 0.8,
+   "tokens_por_llamada_mediana": 836.5,
+   "tokens_entrada_mediana": 695.0,
+   "tokens_salida_mediana": 141.0,
+   "costo_por_llamada_ia_usd_mediana": 0.000187,
+   "costo_suite_usd": 0.00864,
+   "acierto_global": 0.983,
+   "pendientes": 0.017,
+   "acierto_ia": 1.0,
+   "acierto_cierre": 0.929
+  },
+  "rag": {
+   "vectores": false,
+   "fragmentos_indexados": 166,
+   "llamadas": 14,
+   "preguntas": 20,
+   "hit1_llamada": 0.7,
+   "hit3_llamada": 0.75,
+   "hit6_llamada": 0.85,
+   "hit1_fragmento": 0.7,
+   "hit3_fragmento": 0.75,
+   "hit6_fragmento": 0.8,
+   "mrr_fragmento": 0.735,
+   "hit6_fragmento_directa": 0.8333333333333334,
+   "hit6_fragmento_parafraseada": 0.75,
+   "tokens_contexto_con_rag_mediana": 1181.0,
+   "tokens_todo_el_corpus": 1836,
+   "tokens_por_transcripcion_media": 131,
+   "reduccion_tokens_pct": 35.7
+  },
+  "asistente": {
+   "preguntas_con_ia": 12,
+   "preguntas_fallidas": 0,
+   "latencia_total_mediana_s": 0.62,
+   "primer_token_mediana_s": 0.548,
+   "preguntas_con_espera_429": 0,
+   "espera_429_total_s": 0,
+   "tokens_entrada_est_mediana": 1180.0,
+   "tokens_salida_est_mediana": 28.5,
+   "costo_por_pregunta_usd_mediana": 0.000198,
+   "respuestas_fundadas_pct": 83.3,
+   "respuestas_con_cita_correcta_cualquier_formato_pct": 83.3,
+   "latencia_directo_mediana_ms": 5.0
+  }
+ }
+}

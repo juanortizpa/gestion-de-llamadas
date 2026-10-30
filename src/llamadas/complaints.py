@@ -152,6 +152,43 @@ def detect(turns: list[dict], phrases: list[str]) -> list[dict]:
     return hits
 
 
+# Pistas para proponer categoria y prioridad al registrar una queja detectada (el auditor siempre puede cambiarlas)
+PISTAS = {
+    "espera": ["espera", "esperando", "demora", "demoran", "tardan", "tardo", "horas"],
+    "trato": ["grosero", "grosera", "maltrato", "mal trato", "mala atencion", "no me atienden", "mal atendido"],
+    "cita": ["cita", "cancelar", "cancelaron", "cancelada", "reprogramar", "agendar", "agenda"],
+    "informacion": ["informacion", "me dijeron", "no me informaron", "me informaron mal"],
+    "comunicacion": ["cortaron", "se cae", "nadie contesta", "no contestan", "no me contestan"],
+    "autorizacion": ["autorizacion", "autorizar", "eps", "no autorizan"],
+    "resultados": ["resultado", "resultados"],
+    "cobros": ["cobro", "cobraron", "factura", "facturacion", "cobran"],
+}
+PISTAS_ALTA = ["supersalud", "tutela", "denuncia", "denunciar", "demanda", "demandar", "abogado", "defensoria", "personeria"]
+
+
+def guess(texto: str) -> tuple[str, str]:
+    """(categoria, prioridad) segun palabras del cliente. Sin pistas: ("otro", "media")."""
+    tn = f" {normalize(texto)} "
+    score = {c: sum(f" {normalize(w)} " in tn for w in ws) for c, ws in PISTAS.items()}
+    cat, n = max(score.items(), key=lambda kv: kv[1])
+    alta = any(f" {w} " in tn for w in PISTAS_ALTA)
+    return (cat if n else "otro"), ("alta" if alta else "media")
+
+
+def stats(settings: Settings | None = None) -> dict:
+    """Para volver util el panel: donde se concentran las quejas y si se responden a tiempo."""
+    s = settings or load_settings()
+    qs = list_complaints(s)
+    top = lambda key, labels=None: sorted(({"clave": (labels or {}).get(k, k), "n": n} for k, n in
+                                           __import__("collections").Counter(q[key] for q in qs if q[key]).items()), key=lambda x: -x["n"])[:6]
+    closed = [q for q in qs if q["estado"] == "cerrada" and q["cerrada_el"] and q["fecha"]]
+    days = [(date.fromisoformat(q["cerrada_el"]) - date.fromisoformat(q["fecha"])).days for q in closed]
+    on_time = [q for q in closed if q["plazo"] and q["cerrada_el"] <= q["plazo"]]
+    return {"total": len(qs), "por_categoria": top("categoria", CATEGORIAS), "por_asesor": top("asesor"), "por_sede": top("sede"),
+            "dias_cierre": round(sum(days) / len(days), 1) if days else None,
+            "a_tiempo_pct": round(100 * len(on_time) / len(closed)) if closed else None, "cerradas": len(closed)}
+
+
 def suggestions(settings: Settings | None = None) -> list[dict]:
     """Llamadas analizadas donde el cliente parece quejarse y que aun no tienen queja registrada ni fueron descartadas."""
     s = settings or load_settings()
@@ -179,7 +216,7 @@ def suggestions(settings: Settings | None = None) -> list[dict]:
         d = call.get("received_date") or ""
         out.append({"llamada": cid, "fecha": f"{d[:4]}-{d[4:6]}-{d[6:8]}" if len(d) == 8 else "",
                     "duracion_s": call.get("duration_s"), "asesor": load_review(cid, s).get("agent", ""),
-                    "hallazgos": cached[1]})
+                    "hallazgos": cached[1], **dict(zip(("categoria", "prioridad"), guess(" ".join(h["cita"] for h in cached[1]))))})
     return out
 
 

@@ -8,10 +8,12 @@ sample_rate = 16000
 min_speech_s = 8.0                # menos voz que esto => estado no_speech (sin nota)
 
 [stt]
-model = "medium"                  # small | medium | large-v3 (benchmark: medium RTF ~0.5)
-compute_type = "int8"
+model = "large-v3"                # small | medium | large-v3 (la mas precisa; en GPU RTX 3050 va mucho mas rapido que medium en CPU)
+device = "auto"                   # auto (GPU CUDA si hay, si no CPU) | cuda | cpu
+compute_type_gpu = "int8_float16" # GPU de 6 GB: ~2.3 GB de VRAM y casi sin perdida de precision (float16 = ~3.5 GB)
+compute_type = "int8"             # CPU
 cpu_threads = 4
-beam_size = 1
+beam_size = 5                     # mas precision que 1; en GPU el costo es pequeno
 language = "es"
 initial_prompt = "Llamada de atencion al cliente de Angiografia de Occidente y Nueva EPS. Cedula, cita, examen, agenda."
 
@@ -58,12 +60,13 @@ path = "Base_maestra_preparacion_examenes.xlsx"   # Excel del usuario: preparaci
 # local (llama.cpp, sin internet) | groq | gemini. LLM_PROVIDER en .env manda sobre este valor (lo escribe Instalar.bat)
 provider = "local"
 # "rapido" = Qwen2.5-3B (~1 min/llamada); "preciso" = Qwen2.5-7B (~3 min/llamada, mas citas verificables)
-mode = "rapido"
+mode = "preciso"
 models = { rapido = "llm/qwen2.5-3b-instruct-q4_k_m.gguf", preciso = "llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf" }
 server_exe = ""                   # opcional: ruta bajo models/. Vacio = se busca solo (llama-server.exe en Windows, llama-server en Linux/macOS)
 port = 8089
 ctx = 8192
-threads = 4
+threads = 8
+gpu_layers = 99                   # capas en la GPU (solo si models/llm/llama-cuda existe); 0 = solo CPU. llama.cpp ajusta si no caben
 max_tokens = 900
 quote_min_ratio = 88              # una cita del LLM solo vale si aparece (aprox.) en la transcripcion
 
@@ -72,6 +75,8 @@ quote_min_ratio = 88              # una cita del LLM solo vale si aparece (aprox
 groq_model = "openai/gpt-oss-120b"   # llama-3.3-70b-versatile ya no esta en el catalogo de Groq (404, 2026-10-17)
 gemini_model = "gemini-1.5-flash"
 timeout_s = 60                    # limite por peticion a la API externa
+retries = 2                       # reintentos ante 429 (limite de peticiones del proveedor)
+retry_wait_s = 4                  # espera antes del 1.er reintento; se duplica (4 s, 8 s)
 
 [review]
 pass_percent = 80                 # < 80 % = No aprobado (dato del usuario)

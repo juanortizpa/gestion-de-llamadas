@@ -13,6 +13,9 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
 </script>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/chat.css">
+<link rel="stylesheet" href="/static/vocab.css">
+<link rel="stylesheet" href="/static/extras.css">
+<link rel="stylesheet" href="/static/trazas.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -46,7 +49,9 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
     <button class="tab active" data-view="cargar"><b>1</b> Cargar y analizar</button>
     <button class="tab" data-view="resultados"><b>2</b> Resultados y revisión</button>
     <button class="tab" data-view="quejas"><b>3</b> Quejas</button>
+    <button class="tab" data-view="comentarios"><svg class="i"><use href="#i-bulb"/></svg> Comentarios</button>
     <button class="tab" data-view="asistente"><svg class="i"><use href="#i-chat"/></svg> Asistente</button>
+    <button class="tab" data-view="trazas"><svg class="i"><use href="#i-spark"/></svg> Trazas</button>
     <button class="tab" data-view="config"><svg class="i"><use href="#i-gear"/></svg> Configuración</button>
   </nav>
   <div class="top-actions">
@@ -139,6 +144,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
   <!-- ============ 3. QUEJAS ============ -->
   <section id="view-quejas" class="view">
     <div class="cards" id="qSummary"></div>
+    <div class="card" id="qStats" style="--i:3" hidden></div>
     <div class="card" id="qDetect" style="--i:4" hidden>
       <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-chat"/></svg></span>
         <div><h2>Posibles quejas detectadas en las llamadas</h2><p>Frases del cliente que suenan a queja. Escuche la cita y decida: regístrela o descártela.</p></div></div>
@@ -164,6 +170,28 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
     </div>
   </section>
 
+  <!-- ============ COMENTARIOS ============ -->
+  <section id="view-comentarios" class="view">
+    <div class="card" style="--i:0">
+      <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-bulb"/></svg></span>
+        <div><h2>Comentarios sobre la aplicación</h2><p>Cuéntenos qué mejorar, qué falla o qué le gusta. Su mensaje queda guardado en este equipo y, si el correo está configurado, se avisa al equipo.</p></div></div>
+      <form id="cForm" class="c-form" autocomplete="off">
+        <div class="seg" id="cTipoSeg" role="group" aria-label="Tipo de comentario"></div>
+        <label class="fld">Su comentario<textarea id="cMensaje" rows="4" maxlength="3000" placeholder="Ej. Me gustaría poder filtrar las llamadas por sede."></textarea></label>
+        <div class="grid2">
+          <label class="fld">Nombre (opcional)<input id="cNombre" maxlength="80"></label>
+          <label class="fld">Correo o teléfono para responderle (opcional)<input id="cContacto" maxlength="120"></label>
+        </div>
+        <div class="row"><button class="btn primary" id="cEnviar" type="submit">Enviar comentario</button><span class="hint" id="cMsg"></span></div>
+      </form>
+    </div>
+    <div class="card" style="--i:1">
+      <div class="q-head"><h2>Comentarios recibidos</h2></div>
+      <p class="count-line" id="cCount"></p>
+      <div id="cList" class="c-list"></div>
+    </div>
+  </section>
+
   <!-- ============ ASISTENTE ============ -->
   <section id="view-asistente" class="view">
     <div class="card chat-card" style="--i:0">
@@ -180,6 +208,22 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
         <button class="btn danger" id="chatStop" type="button" hidden>Detener</button>
       </form>
       <p class="hint"><svg class="i"><use href="#i-shield"/></svg> Los números largos (documentos, teléfonos) se enmascaran antes de buscar. La conversación no se guarda: al cerrar la pestaña se borra.</p>
+    </div>
+  </section>
+
+  <!-- ============ TRAZAS DE LA IA ============ -->
+  <section id="view-trazas" class="view">
+    <div class="card" style="--i:0">
+      <div class="trz-head">
+        <div><h2>Trazas de la IA</h2><p>Cada vez que el sistema consulta a la IA queda aquí: qué modelo, cuántos segundos y tokens, qué citas se aceptaron (verificadas en la transcripción) y cuáles se descartaron, y qué falló. Todo lo demás (reglas, conteos, notas) se calcula con código y no aparece.</p></div>
+        <button class="btn" id="trzClear" type="button"><svg class="i"><use href="#i-trash"/></svg> Limpiar</button>
+      </div>
+      <div class="trz-kpis" id="trzKpis"></div>
+      <div class="trz-wrap"><table class="trz-table">
+        <thead><tr><th>Hora</th><th>Qué se pidió</th><th>Modelo</th><th>Segundos</th><th>Tokens (entrada → salida)</th><th>Resultado</th></tr></thead>
+        <tbody id="trzBody"></tbody>
+      </table></div>
+      <p class="hint" id="trzEmpty" hidden>Aún no hay trazas. Analice una llamada con IA o haga una pregunta abierta en el Asistente y aparecerán aquí.</p>
     </div>
   </section>
 
@@ -218,6 +262,43 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
         <div class="row"><button class="btn" id="btnResetPrefs">Restablecer diseño original</button></div>
         <p class="hint"><svg class="i"><use href="#i-shield"/></svg> La app solo funciona en este computador (127.0.0.1). Los audios y resultados viven en la carpeta <b>data</b>.</p>
       </div>
+    </div>
+    <div class="card" style="--i:2" id="mailCard">
+      <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-bolt"/></svg></span>
+        <div><h2>Notificaciones por correo</h2><p>Avisos automáticos al terminar un análisis, cuando una llamada no aprueba, al detectarse una queja o vencer su plazo.</p></div></div>
+      <p class="hint" id="mailStatus"></p>
+      <div class="set-item"><div class="set-lbl"><b>Destinatarios</b><small>Uno o varios correos, separados por coma.</small></div><input id="mailTo" placeholder="calidad@empresa.com, jefe@empresa.com"></div>
+      <div class="set-item"><div class="set-lbl"><b>Qué avisar</b><small>Cada aviso se envía una sola vez.</small></div><div id="mailEvents" class="mail-events"></div></div>
+      <div class="row"><button class="btn primary" id="mailSave" type="button">Guardar</button><button class="btn" id="mailTest" type="button">Enviar correo de prueba</button><span class="hint" id="mailMsg"></span></div>
+      <details class="sources"><summary>Últimos avisos</summary><div id="mailHist" class="mail-hist"></div></details>
+      <p class="hint"><svg class="i"><use href="#i-shield"/></svg> Los correos llevan solo códigos de llamada, notas y plazos: nunca transcripciones, documentos ni teléfonos. La clave del correo se guarda solo en el archivo .env de este equipo (SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM).</p>
+    </div>
+    <div class="card vocab-card" style="--i:3" id="vocabCard">
+      <div class="set-head"><span class="mode-ic"><svg class="i"><use href="#i-chat"/></svg></span>
+        <div><h2>Vocabulario del dominio</h2><p>Una IA local le hace preguntas (como un test) para aprender los nombres, siglas y frases de sus llamadas. Con sus respuestas se afina la transcripción. Puede seguir ampliando cuando quiera o dejarlo listo por ahora.</p></div></div>
+      <div class="vocab-grid">
+        <div class="vocab-chat">
+          <div class="vocab-prog" id="vocabProg"></div>
+          <div class="chat-log vocab-log" id="vocabLog" aria-live="polite"></div>
+          <div class="chat-suggest" id="vocabOpts"></div>
+          <form class="chat-form" id="vocabForm" autocomplete="off">
+            <textarea id="vocabInput" rows="1" maxlength="1000" placeholder="Escriba su respuesta o elija una opción…" aria-label="Respuesta"></textarea>
+            <button class="btn primary" id="vocabSend" type="submit">Responder</button>
+          </form>
+          <div class="row vocab-actions">
+            <button class="btn" id="vocabSkip" type="button">No sé / omitir</button>
+            <button class="btn" id="vocabPause" type="button">Listo por ahora</button>
+          </div>
+        </div>
+        <div class="vocab-know">
+          <h3>Lo aprendido</h3>
+          <div id="vocabKnow"></div>
+          <div class="row"><input id="vocabAdd" placeholder="Añadir un término a mano" maxlength="60"><button class="btn" id="vocabAddBtn" type="button">Añadir</button></div>
+          <details class="sources"><summary>Cómo se usa en la transcripción</summary><pre class="vocab-prompt" id="vocabPrompt"></pre></details>
+          <button class="btn danger" id="vocabReset" type="button">Borrar todo el vocabulario</button>
+        </div>
+      </div>
+      <p class="hint"><svg class="i"><use href="#i-shield"/></svg> Todo queda en este equipo (carpeta data/vocab). Los audios ya transcritos se vuelven a transcribir con el vocabulario nuevo la próxima vez que se analicen. La entrevista no funciona mientras corre un análisis.</p>
     </div>
   </section>
 </main>
@@ -313,5 +394,8 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
 <div id="toast" class="toast" hidden></div>
 <script src="/static/app.js"></script>
 <script src="/static/chat.js"></script>
+<script src="/static/vocab.js"></script>
+<script src="/static/extras.js"></script>
+<script src="/static/trazas.js"></script>
 </body>
 </html>

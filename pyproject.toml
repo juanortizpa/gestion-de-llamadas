@@ -20,6 +20,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+# GPU NVIDIA (Windows/Linux): bibliotecas CUDA que usa faster-whisper (pip install -e .[gpu])
+gpu = ["nvidia-cublas-cu12", "nvidia-cudnn-cu12==9.*"]
 
 [project.scripts]
 llamadas = "llamadas.__main__:main"

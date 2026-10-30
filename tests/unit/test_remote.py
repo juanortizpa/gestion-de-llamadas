@@ -85,6 +85,7 @@ def test_stream_groq_y_gemini(monkeypatch):
 @pytest.mark.parametrize("code,texto", [(429, "limito"), (401, "clave"), (403, "403"), (500, "500")])
 def test_errores_http_sin_traza_ni_clave(monkeypatch, code, texto):
     monkeypatch.setenv("GROQ_API_KEY", "secreta")
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)       # el 429 reintenta con espera: no esperar de verdad
 
     def boom(req, timeout=None):
         raise urllib.error.HTTPError(req.full_url, code, "x", {}, io.BytesIO(b"cuerpo con secreta"))
