@@ -8,7 +8,7 @@ Opcionalmente puede usar una IA externa (Groq o Gemini): entonces solo los *text
 
 Solo necesita **Python 3.12 o superior** e internet durante la instalación.
 
-1. **Descargue el proyecto.** En GitHub, botón verde **Code → Download ZIP** y descomprímalo, o con Git: `git clone https://github.com/juanortizpa/gestion-de-llamadas.git`. El repositorio es público: no necesita cuenta.
+1. **Descargue el proyecto.** En GitHub, botón verde **Code → Download ZIP** y descomprímalo, o con Git: `git clone https://github.com/juanortizpa/gestion-de-llamadas.git`. El repositorio es **privado**: inicie sesión en GitHub con una cuenta que tenga acceso (pídala al equipo). Si `git clone` pide usuario y contraseña, use `gh auth login` (GitHub CLI) o un token personal en lugar de la contraseña.
    En Windows descomprímalo en una **ruta corta** (por ejemplo `C:\gdl`): dentro de `Descargas\...\gestion-de-llamadas-main\` algunas rutas pasan el límite de 260 caracteres de Windows y la descompresión falla.
 2. **Instale Python si no lo tiene:**
    - Windows: `winget install --id Python.Python.3.12 -e` o [python.org](https://www.python.org/downloads/) (marque «Add python.exe to PATH»). Si al escribir `python` se abre la Microsoft Store, Python no está instalado: es solo un acceso directo de Windows.
@@ -129,7 +129,7 @@ ffmpeg -version
 
 ### 2. Descargar el proyecto
 
-El repositorio es público: no necesita cuenta de GitHub.
+El repositorio es **privado**: necesita una cuenta de GitHub con acceso (pídala al equipo). En Windows, `git clone` abre el navegador para iniciar sesión.
 
 ```powershell
 cd $HOME\Desktop
@@ -189,7 +189,7 @@ Escriba los nombres de los asesores. Ese archivo es privado y no se sube a git.
 ## Uso diario
 
 1. Abra el programa: en Windows, doble clic en **`Iniciar.bat`** (`Iniciar_Auditoria.bat` es el mismo lanzador con el nombre antiguo); en macOS/Linux, `./run.sh`. Se abre `http://127.0.0.1:8765` en el navegador; no cierre la ventana de la consola mientras lo use.
-2. **Cargar y analizar:** arrastre los audios (`.gsm`, `.mp3`, `.wav`) y pulse **Analizar**.
+2. **Cargar y analizar:** arrastre los audios (`.gsm`, `.mp3`, `.wav`) y pulse **Analizar**. Para probar hay 14 llamadas en `audios/`.
 3. **Resultados y revisión:** abra cada llamada, resuelva los criterios con **?** y guarde.
 4. **Exportar a Excel:** genera la matriz con el formato de `Matriz_Auditoria_Llamadas plantilla.xlsx`.
 5. **Quejas:** registre y haga seguimiento a las quejas de usuarios (prioridad, fecha límite, responsable, estado); el sistema sugiere las llamadas donde el cliente se quejó.
@@ -241,6 +241,7 @@ scripts/        utilidades (descargar_modelos.py, evaluaciones)
 benchmarks/     mediciones de modelos
 tests/          pruebas
 videos/         proyecto fuente del video (HyperFrames)
+audios/         14 llamadas reales para pruebas (solo con el repositorio privado)
 data/           (local, ignorado) audios, transcripciones y resultados
 models/         (local, ignorado) modelos descargados
 ```
@@ -248,6 +249,7 @@ models/         (local, ignorado) modelos descargados
 ## Privacidad
 
 - Nunca suba a git audios, transcripciones, `data/`, `models/` ni `config/agents.toml` (ya están en `.gitignore`).
+- La única excepción es `audios/`: 14 llamadas reales autorizadas para pruebas. Solo pueden estar mientras el repositorio sea **privado** y con acceso del equipo autorizado, y **no van en el ZIP de la entrega**.
 - El servidor solo escucha en `127.0.0.1`. Active BitLocker en el disco.
 - El botón **Eliminar llamada** borra audio, transcripción y resultados de esa llamada.
 
@@ -255,6 +257,7 @@ models/         (local, ignorado) modelos descargados
 
 | Síntoma | Solución |
 |---|---|
+| `Repository not found` o error 404 al descargar | El repositorio es privado: inicie sesión con una cuenta que tenga acceso o pida al equipo que lo agreguen como colaborador |
 | Falla la descompresión del ZIP («No se puede encontrar una parte de la ruta») | Descomprímalo en una ruta corta, por ejemplo `C:\gdl` |
 | Escribir `python` abre la Microsoft Store | Python no está instalado: `winget install --id Python.Python.3.12 -e` |
 | macOS/Linux: `python: command not found` | Use `python3 iniciar.py` o `./run.sh` |
