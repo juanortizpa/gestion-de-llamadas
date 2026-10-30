@@ -25,6 +25,7 @@ quedan como alternativa para quien prefiera instalar a mano.
 
 - Guía de uso para el auditor: [LEEME.md](LEEME.md)
 - Detalle técnico y decisiones del proyecto: [CONTEXT.md](CONTEXT.md)
+- Decisiones de la entrega, línea base y medición: [docs/decisiones.md](docs/decisiones.md) · casos de prueba en [eval/](eval/)
 - Video de funcionalidades: [presentacion/Video_Auditoria_IA.mp4](presentacion/Video_Auditoria_IA.mp4)
 
 ## Inteligencia artificial: modelos, proveedor y por qué no usamos un agente
@@ -37,16 +38,21 @@ quedan como alternativa para quien prefiera instalar a mano.
 
 En CPU local cada vuelta extra de un agente cuesta 10–60 s (el modelo de 3B lee ~40 tokens/s): un bucle con herramientas haría impredecible el tiempo de un lote de 80 llamadas/día sin mejorar el resultado, porque los pasos ya se conocen. Sin bucle no puede haber un «agente atrapado» gastando tokens: cada llamada hace un número acotado de consultas.
 
-**Modelos (se elige en la app: modo Rápido o Preciso):**
+**Modelo de la demo: Groq `openai/gpt-oss-120b`** (`LLM_PROVIDER=groq` en `.env`). Se eligió por latencia (0,8 s por llamada a la IA), costo (≈ US$ 0,0002 por llamada auditada; 80 llamadas al día ≈ US$ 0,015) y fidelidad del JSON y las citas (100 % de las respuestas de la IA correctas en los casos dorados). El sistema sigue siendo **local por defecto**: la API externa es una opción del instalador.
 
-| Modo | Modelo | Medido en i5-8250U (2026-10-05) | Uso |
-|---|---|---|---|
-| Rápido (liviano) | Qwen2.5-3B-Instruct Q4_K_M (llama.cpp) | 49–64 s por llamada, ~2 GB de RAM | Uso diario |
-| Preciso (pesado) | Qwen2.5-7B-Instruct Q4_K_M (llama.cpp) | 157–199 s por llamada, 7,4 GB de RAM; más citas verificables | Lotes largos o nocturnos |
+**Modelos disponibles (misma interfaz; se elige en el instalador y en la app: modo Rápido o Preciso):**
+
+| Modo | Modelo | Latencia de la IA por llamada* | Acierto en casos dorados* | Costo | Uso |
+|---|---|---|---|---|---|
+| Demo (API externa) | Groq `openai/gpt-oss-120b` | 0,8 s | 98,3 % | ≈ US$ 0,0002 / llamada | Demo y equipos sin GPU |
+| Rápido (liviano, local) | Qwen2.5-3B-Instruct Q4_K_M (llama.cpp) | 0,9 s | 95,0 % | US$ 0 | Uso diario sin internet |
+| Preciso (pesado, local) | Qwen2.5-7B-Instruct Q4_K_M (llama.cpp) | 2,5 s | 98,3 % | US$ 0 | Lotes largos o nocturnos |
+
+\* Medianas de `eval/` del 2026-10-29 con datos sintéticos (Groq: 42 llamadas; locales: 1 repetición en una GPU RTX 3050 de 6 GB). Detalle, costo y metodología en [docs/decisiones.md](docs/decisiones.md). En un equipo **solo con CPU** (i5-8250U, 2026-10-05) el 3B tardó 49–64 s y el 7B 157–199 s por llamada.
 
 **API externa (opcional y gratuita):** la capa de proveedor (`make_llm` en `src/llamadas/llm.py`) permite cambiar a **Groq (`openai/gpt-oss-120b`)** o **Google Gemini (`gemini-1.5-flash`)** con el mismo contrato, usando sus **planes gratuitos** (con límites de uso). Sirve para equipos sin recursos para un modelo local, y es donde podrían correr agentes en el futuro sin costo y sin cargar el equipo. Con API externa **los textos de las llamadas salen del equipo** (el instalador lo advierte). Se configura con `LLM_PROVIDER` y la clave en `.env` (ver [.env.example](.env.example)).
 
-**Base de datos vectorial:** el Asistente usa una **base de datos vectorial** (SQLite con la extensión `sqlite-vec`, en `data/chat/index.db`) para buscar por significado en las llamadas, combinada con búsqueda por palabras (FTS5). No necesita servidor aparte.
+**Base de datos vectorial:** el Asistente usa una **base de datos vectorial** (SQLite con la extensión `sqlite-vec`, en `data/chat/index.db`) para buscar por significado en las llamadas, combinada con búsqueda por palabras (FTS5). No necesita servidor aparte. Por eso **no hay `docker-compose.yml`**: no hay base de datos ni servicios que levantar; todo vive en `data/` (ver [docs/decisiones.md](docs/decisiones.md) §3).
 
 **Límites activos aunque no haya agente:**
 
@@ -58,6 +64,8 @@ En CPU local cada vuelta extra de un agente cuesta 10–60 s (el modelo de 3B le
 | Confirmación | Revisión humana antes de la nota final; E1 solo con confirmación humana |
 
 Además: salida JSON forzada por esquema, temperatura 0 con semilla fija (reproducible) y validador de citas (una cita inventada se descarta y el criterio queda para revisión humana).
+
+**Evidencia y trazas:** la línea base (4 cifras con mediana y fecha), la decisión sobre RAG y su medición están en [docs/decisiones.md](docs/decisiones.md). Los casos dorados y el script de medición están en [eval/](eval/) y se repiten con `python eval/run_eval.py` (`--suite rag` no gasta IA). La pestaña **Trazas** muestra en vivo cada llamada a la IA (modelo, segundos, tokens, citas aceptadas o descartadas) y los fallos.
 
 ## Requisitos
 
@@ -158,6 +166,7 @@ Escriba los nombres de los asesores. Ese archivo es privado y no se sube a git.
 3. **Resultados y revisión:** abra cada llamada, resuelva los criterios con **?** y guarde.
 4. **Exportar a Excel:** genera la matriz con el formato de `Matriz_Auditoria_Llamadas plantilla.xlsx`.
 5. **Quejas:** registre y haga seguimiento a las quejas de usuarios (prioridad, fecha límite, responsable, estado); el sistema sugiere las llamadas donde el cliente se quejó.
+6. **Trazas:** cada llamada a la IA en vivo (modelo, segundos, tokens, citas aceptadas o descartadas) y los fallos (429, timeout, IA caída).
 
 Los datos (audios, transcripciones, resultados) se guardan en `data/`, que **no** se versiona.
 
