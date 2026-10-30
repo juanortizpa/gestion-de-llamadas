@@ -92,20 +92,20 @@ Asistente de consulta (pestaña «Asistente»)
 
 Corpus sintético: 14 llamadas con temas distintos (claustrofobia, cancelación, horarios, reclamo, preparación de tomografía…), 166 fragmentos. 20 preguntas con la llamada y la frase donde está la respuesta; 12 *directas* (comparten palabras con el texto) y 8 *parafraseadas*. «Correcto» = alguno de los 6 fragmentos devueltos pertenece a la llamada esperada **y contiene la frase** que responde la pregunta.
 
-| Métrica | Solo palabras (FTS5/BM25) · 2026-10-29 | **Híbrido** (FTS5 + vectores `multilingual-e5-small`) · 2026-10-30 |
-|---|---|---|
-| Llamada correcta en el 1.er resultado | 70 % (14 de 20) | **80 %** (16 de 20) |
-| Llamada correcta en los 3 primeros | 75 % | 85 % |
-| Llamada correcta entre los 6 devueltos | 85 % | 90 % |
-| **Fragmento correcto entre los 6 devueltos** | 80 % (16 de 20) | **90 %** (18 de 20) |
-| MRR del fragmento | 0,735 | **0,835** |
-| Preguntas directas / parafraseadas (fragmento en top-6) | 83 % / 75 % | **100 %** / 75 % |
+| Métrica | Solo palabras, antes · 2026-10-29 | Solo palabras, corregido · 2026-10-30 | **Híbrido** (+ vectores `multilingual-e5-small`), corregido · 2026-10-30 |
+|---|---|---|---|
+| Llamada correcta en el 1.er resultado | 70 % (14 de 20) | 80 % | **85 %** (17 de 20) |
+| Llamada correcta en los 3 primeros | 75 % | 85 % | 90 % |
+| Llamada correcta entre los 6 devueltos | 85 % | 90 % | 90 % |
+| **Fragmento correcto entre los 6 devueltos** | 80 % (16 de 20) | **90 %** | **90 %** (18 de 20) |
+| MRR del fragmento | 0,735 | 0,835 | **0,875** |
+| Preguntas directas / parafraseadas (fragmento en top-6) | 83 % / 75 % | 100 % / 75 % | 100 % / 75 % |
 
-**Modo híbrido medido el 2026-10-30 en GitHub Actions** (workflow *Medicion RAG*, `.github/workflows/eval-rag.yml`): baja solo llama.cpp y `multilingual-e5-small` (~180 MB) y corre `python eval/run_eval.py --suite rag --engine ninguna`, sin IA de texto ni claves; mismo corpus y mismas 20 preguntas. Los vectores suben el fragmento correcto en top-6 de 80 % a **90 %** y el MRR de 0,735 a **0,835**, y las preguntas directas llegan a 100 %. Las parafraseadas **no mejoran** (75 %, 6 de 8): los 2 fallos que quedan son parafraseados (detalle por pregunta en el artefacto `eval-rag` de esa corrida). El umbral `min_cosine = 0,80` sigue sin calibrar con datos reales. Con este resultado se mantiene la decisión de usar búsqueda híbrida.
+**Cómo se midió (2026-10-30).** En GitHub Actions, workflow *Medicion RAG* (`.github/workflows/eval-rag.yml`): primero mide solo por palabras, luego baja llama.cpp y `multilingual-e5-small` (~180 MB) y mide el modo híbrido; los dos con `python eval/run_eval.py --suite rag --engine ninguna`, sin IA de texto ni claves, mismo corpus y mismas 20 preguntas. Las columnas «corregido» ya incluyen el arreglo del enrutador (fallo 2, abajo). Antes de ese arreglo el híbrido daba 90 % y MRR 0,835: el arreglo sube sobre todo la búsqueda solo por palabras (80 % → 90 %), que es la que se usa cuando el modelo de embeddings no está instalado. Lo que **no** mejora son las parafraseadas (75 %, 6 de 8): quedan 2 fallos, los dos de ese tipo, en ambos modos. El umbral `min_cosine = 0,80` sigue sin calibrar con datos reales. Se mantiene la decisión de usar búsqueda híbrida.
 
 **Qué dicen los fallos de la búsqueda solo por palabras** (4 de 20):
 1. *R03 «estacionamiento» y R08 «seguro médico»:* la transcripción dice «parqueadero» y «EPS». No comparten ninguna palabra; es el caso para el que sirven los vectores y es la razón de mantener el modo híbrido.
-2. *R06 «preparación…» y R04 «esperar dos horas»:* el enrutador interpreta «preparación» como el criterio Z1 y «esperar» como G1 y **sube la puntuación** de los fragmentos de criterio de *todas* las llamadas (×1,4), que desplazan a la transcripción donde está la respuesta. Es un defecto real del Asistente que esta medición dejó a la vista. Sigue sin corregir.
+2. *R06 «preparación…» y R04 «esperar dos horas»:* el enrutador interpretaba «preparación» como el criterio Z1 y «esperar» como G1, y **subía la puntuación** (×1,4) de los fragmentos de criterio de *todas* las llamadas, que desplazaban a la transcripción con la respuesta. **Corregido el 2026-10-30:** ese peso extra solo se aplica si la pregunta habla de la evaluación (cumplió, falló, nota, criterio, Z1…), no del contenido de la conversación (`chat/retrieve.py`, prueba en `tests/unit/test_rag_criterio.py`). Las preguntas directas pasaron de 83 % a 100 %.
 
 **Límites de esta cifra.** 14 llamadas y 20 preguntas son una muestra pequeña (cada pregunta pesa 5 puntos) y con pocos distractores: con cientos de llamadas reales el resultado será peor, no mejor. Sirve como línea base para comparar cambios, no como promesa de calidad en producción.
 
