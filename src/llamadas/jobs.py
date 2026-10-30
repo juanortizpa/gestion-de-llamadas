@@ -13,11 +13,11 @@ from .audio import parse_filename, sha256_file
 from .audit import audit_transcript, save_audit
 from .auditor import classify_completion, resolve_with_llm
 from .config import Settings, load_settings
-from .llm import LlamaServer
+from .llm import LlamaServer, make_llm
 from .pipeline import process_file, save_result
 
 STAGES = [("audio", "Preparando el audio"), ("stt", "Transcribiendo la conversación"), ("grabado", "Detectando mensajes grabados"),
-          ("diar", "Separando asesor y cliente"), ("reglas", "Aplicando reglas de calidad"), ("llm", "Análisis con IA local")]
+          ("diar", "Separando asesor y cliente"), ("reglas", "Aplicando reglas de calidad"), ("llm", "Análisis con IA")]
 AUDIO_EXT = {".gsm", ".mp3", ".wav"}
 
 
@@ -79,14 +79,15 @@ class JobManager:
         with self.lock:
             self.state.update(kw)
 
-    def start(self, use_llm: bool, mode: str) -> bool:
+    def start(self, use_llm: bool, mode: str, engine: str | None = None) -> bool:
+        """`engine`: "local" | "externa" | None (None = el proveedor de .env)."""
         if self.thread and self.thread.is_alive():
             return False
         files = sorted(f for f in incoming_dir(self.s).iterdir() if f.suffix.lower() in AUDIO_EXT)
         self.cancel_ev.clear()
         self.state = {**self._idle(), "running": True, "total": len(files), "started": time.time(), "use_llm": use_llm,
-                      "mode": mode, "message": "Iniciando…"}
-        self.thread = threading.Thread(target=self._run, args=(files, use_llm, mode), daemon=True)
+                      "mode": mode, "engine": engine, "message": "Iniciando…"}
+        self.thread = threading.Thread(target=self._run, args=(files, use_llm, mode, engine), daemon=True)
         self.thread.start()
         return True
 
@@ -95,21 +96,24 @@ class JobManager:
         self._set(message="Cancelando al terminar la llamada actual…")
 
     # ------------------------------------------------------------------
-    def _run(self, files: list[Path], use_llm: bool, mode: str):
+    def _run(self, files: list[Path], use_llm: bool, mode: str, engine: str | None = None):
         s = self.s
         server = None
         try:
             if use_llm:
-                server = LlamaServer(s, mode)
+                server = make_llm(s, mode, engine)
+                ext = getattr(server, "provider", None) is not None       # True si es una API externa
+                kind = "externa" if ext else "local"
                 if server.available():
-                    self._set(message="Encendiendo la IA local (puede tardar 1–2 minutos)…")
+                    self._set(message="Conectando con la IA externa…" if ext else "Encendiendo la IA local (puede tardar 1–2 minutos)…")
                     try:
                         server.start()
                     except Exception as e:  # sin LLM el sistema sigue (modo degradado D-09)
-                        self.state["errors"].append(f"IA local no disponible, se continúa solo con reglas: {e}")
+                        self.state["errors"].append(f"IA {kind} no disponible, se continúa solo con reglas: {e}")
                         server = None
                 else:
-                    self.state["errors"].append("El modelo de IA local no está instalado: se continúa solo con reglas.")
+                    self.state["errors"].append("No hay clave de IA externa (ejecute Instalar.bat): se continúa solo con reglas." if ext
+                                                else "El modelo de IA local no está instalado: se continúa solo con reglas.")
                     server = None
             t_start = time.time()
             for i, f in enumerate(files):
@@ -177,7 +181,7 @@ class JobManager:
                     au = resolve_with_llm(au, tr, server, s)
                     save_audit(au, s)
             except Exception as e:
-                self.state["errors"].append(f"{cid}: IA local falló, quedan pendientes ({e})")
+                self.state["errors"].append(f"{cid}: la IA falló, quedan pendientes ({e})")
         if au.get("auto_discard"):
             with self.lock:
                 self.state["auto_discarded"].append(cid)

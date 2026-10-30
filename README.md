@@ -1,7 +1,27 @@
 # Auditoría de llamadas con IA
 
 Audita llamadas de atención al cliente (transcribe, separa asesor/cliente, evalúa la matriz de criterios y
-permite revisión humana). **100 % local: sin internet al usar, sin costo, los audios no salen del equipo.**
+permite revisión humana). **Local por defecto: sin internet al usar, sin costo, los audios no salen del equipo.**
+Opcionalmente puede usar una IA externa (Groq o Gemini): entonces solo los *textos* de las llamadas salen del equipo.
+
+## Inicio rápido: un solo archivo, en cualquier sistema operativo
+
+Solo necesita **Python 3.12 o superior** ([python.org](https://www.python.org/downloads/)) y descargar esta carpeta. Después:
+
+| Sistema | Qué ejecutar |
+|---|---|
+| Windows | doble clic en **`Iniciar.bat`** |
+| macOS / Linux | `./run.sh` (si no es ejecutable: `sh run.sh`) |
+| Cualquiera | `python iniciar.py` |
+
+La **primera vez** el lanzador crea el entorno en `.venv/`, instala las dependencias (incluido ffmpeg, no hace falta instalarlo aparte)
+y muestra el **menú de instalación**: IA **local** (descarga los modelos, ~3 GB) o **APIs externas** (descarga solo los modelos de voz,
+~1,7 GB, y pide su clave). Las siguientes veces abre el programa directamente. Para cambiar de modo: `python iniciar.py --instalar`
+(o `Instalar.bat`). Otras opciones: `--solo-preparar` (prepara y sale), `--puerto 9000`.
+
+En Linux de Debian/Ubuntu puede hacer falta `sudo apt install python3-venv`. La parte local de la IA usa los binarios de
+llama.cpp de cada sistema (Windows, macOS y Linux, x64 y arm64), que el instalador baja solo. Los pasos manuales de más abajo
+quedan como alternativa para quien prefiera instalar a mano.
 
 - Guía de uso para el auditor: [LEEME.md](LEEME.md)
 - Detalle técnico y decisiones del proyecto: [CONTEXT.md](CONTEXT.md)
@@ -11,16 +31,16 @@ permite revisión humana). **100 % local: sin internet al usar, sin costo, los a
 
 | | Mínimo | Recomendado |
 |---|---|---|
-| Sistema | Windows 10/11 (64 bits) | Windows 11 |
+| Sistema | Windows 10/11, macOS o Linux (64 bits) | Windows 11 |
 | Python | 3.12 | 3.12 |
 | RAM | 8 GB | 16 GB (modo Preciso) |
 | Disco libre | 8 GB | 15 GB |
 | Internet | Solo para la instalación inicial | |
 
-> Los scripts de arranque (`.bat`) y `llama.cpp` están pensados para Windows. En Linux/macOS habría que
-> adaptar `Iniciar_Auditoria.bat` y la ruta `server_exe` de `config/settings.toml`.
+> Probado en Windows 11. En macOS y Linux las pruebas automáticas corren en GitHub Actions
+> (`.github/workflows/pruebas.yml`), pero la IA local no se ha probado a mano en esos sistemas.
 
-## Instalación paso a paso (una sola vez)
+## Instalación manual paso a paso (alternativa; solo Windows PowerShell)
 
 Abra **PowerShell** y ejecute cada bloque en orden.
 
@@ -57,6 +77,15 @@ py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
+
+### 3b. Atajo: menú de instalación (pasos 3 a 5 en uno)
+
+Doble clic en **`Instalar.bat`** (crea el entorno si falta) y elija:
+
+1. **Local**: descarga los modelos (~3 GB). Sin internet al usar; los audios y textos no salen del equipo. Pensado para empresas que ya tienen servidores o recursos: no hay costo por uso.
+2. **APIs externas** (Groq Llama 3.3 70B o Gemini 1.5 Flash): no descarga modelos pesados, pero **los textos de las llamadas se envían al proveedor**. Pide la clave, la guarda en `.env` (local, no se versiona) y prueba la conexión.
+
+Se puede repetir para cambiar de modo. Variables en [.env.example](.env.example). La base del Asistente es SQLite con `sqlite-vec` (búsqueda vectorial en el mismo archivo).
 
 ### 4. Descargar los modelos de IA (~3 GB, necesita internet)
 
@@ -108,6 +137,19 @@ Los datos (audios, transcripciones, resultados) se guardan en `data/`, que **no*
 .venv\Scripts\python.exe -m llamadas audit --detail
 .venv\Scripts\python.exe -m llamadas resolve --mode rapido   # IA local sobre criterios pendientes
 ```
+
+
+### Asistente de consulta (opcional)
+
+Pestaña **Asistente**: pregunta por conteos, rankings y listas (se calculan sin IA) o por lo que se dijo en las llamadas (busca fragmentos y los resume con la IA local, con fuentes). Sin configurar nada funciona buscando por palabras; para búsqueda semántica descargue el modelo de embeddings (~150 MB) y reindexe:
+
+```powershell
+.venv\Scripts\python.exe scripts\descargar_modelos.py --chat
+.venv\Scripts\python.exe -m llamadas index          # actualiza el índice (también se hace solo al preguntar)
+.venv\Scripts\python.exe -m llamadas chat "¿Qué asesor falla más la despedida?" --debug
+```
+
+Detalle y límites (aún sin probar con datos reales) en [CONTEXT.md §16.12](CONTEXT.md).
 
 ## Configuración
 

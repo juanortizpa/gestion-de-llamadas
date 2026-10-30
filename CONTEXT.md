@@ -2,7 +2,7 @@
 
 > **Archivo vivo.** Es la memoria técnica del proyecto. Se actualiza cada vez que se toma una decisión importante de arquitectura (ver §17 "Registro de decisiones"). Si el código y este archivo se contradicen, hay que resolverlo y corregir el que esté mal.
 >
-> Creado: 2026-10-05 · Estado: **FASE DE DISEÑO — no hay código todavía.**
+> Creado: 2026-10-05 · Última actualización: 2026-10-13 (asistente de consulta, §16.12)
 > Idioma de trabajo con el usuario: **español, siempre.**
 
 ---
@@ -641,6 +641,22 @@ Entregable de gestión (no es parte del motor de auditoría): `presentacion/Eval
 - **Detección automática:** frases del cliente en `lexicons.toml [quejas]`, coincidencia **exacta por palabra completa** (no aproximada: se prefiere precisión, una sugerencia falsa cuesta tiempo) y solo en turnos que no son del asesor. Cada sugerencia trae la cita literal y abre la llamada en ese punto. El auditor la registra o la descarta; nunca se crea una queja sola.
 - **Datos:** `data/quejas.json` (no versionado; contiene datos personales), escritura atómica. Exportación a Excel `Quejas_Usuarios.xlsx`. Pruebas: `tests/unit/test_quejas.py`.
 
+### 16.12 Asistente de consulta con busqueda hibrida (2026-10-13)
+
+**Objetivo:** que el auditor pregunte sobre las auditorias y las transcripciones sin gastar IA de mas. Codigo en `src/llamadas/chat/`, pestana **Asistente** en la GUI, CLI `python -m llamadas index|chat`, configuracion en `settings.toml [chat]`. **Estado: implementado y probado solo con llamadas sinteticas y servidores simulados (`tests/unit/test_chat.py`, 34 pruebas); NO se ha probado con datos reales ni con los modelos reales.**
+
+**Por que no hay "base vectorial" aparte:** el LLM es local (D-01), asi que el costo a minimizar es *tiempo de CPU* (la CPU lee ~40 tok/s). Con ~1.000-1.200 tokens por transcripcion, recuperar fragmentos NO recorta la auditoria de forma relevante; se aplica al chat, donde el contexto crece con el volumen. Almacen = un archivo SQLite (`data/chat/index.db`): FTS5 (BM25) + vectores float16 buscados por fuerza bruta en numpy. Coherente con D-04/D-05; hasta decenas de miles de fragmentos. Con cientos de miles, filtrar por fecha o pasar a sqlite-vec.
+
+**Ruta de cada pregunta (de la mas barata a la mas cara):** cache -> *directo* (conteos, tasas, promedios, rankings, listas y fichas se calculan con codigo sobre la tabla `calls`, sin IA) -> sin resultados (no gasta IA) -> IA con fragmentos (busqueda hibrida + RRF + diversidad + presupuesto de tokens + citas `[n]` verificadas) -> si la IA no esta disponible o hay un lote en curso, se muestran los fragmentos tal cual. `router.py` extrae filtros (fechas en espanol, asesor, criterio, estado, tipo, id de llamada) y detecta preguntas de seguimiento; un conteo con "tema libre" que los datos estructurados no explican se manda a busqueda en vez de dar un numero enganoso.
+
+**Optimizaciones de costo:** respuesta directa sin LLM; prefiltro por metadatos antes de buscar; `top_k=6`, maximo 2 fragmentos por llamada, sin solapes, presupuesto `context_tokens=1100`; prompt de sistema constante (aprovecha `cache_prompt`); historial solo en preguntas de seguimiento y recortado; `max_answer_tokens=350`; cache de respuestas invalidada al reindexar; cache de vectores por contenido (reindexar no recalcula lo que no cambio); IA y embeddings se apagan solos tras `idle_stop_min`.
+
+**Principios que se mantienen:** local; modo degradado (sin modelo de embeddings busca solo por palabras; sin LLM muestra fragmentos); el LLM no inventa fuentes: las citas `[n]` inexistentes se quitan y las frases entre comillas que no estan en los fragmentos generan aviso (mismo espiritu que `verify_quote`); nunca corre la IA del chat mientras hay un lote de auditoria (no STT+LLM a la vez, D-03).
+
+**Privacidad:** numeros de >=7 digitos (documentos, telefonos, incluso dictados con espacios) se enmascaran **antes** de indexar; la conversacion no se guarda en el navegador; al eliminar una llamada se borran sus fragmentos, vectores y la cache asociada. Consecuencia: no se puede buscar por numero de documento (deliberado).
+
+**Pendiente / sin calibrar (requiere datos reales):** `min_cosine=0.80` (umbral de relevancia vectorial, solo una suposicion tipica de e5); calidad real de `multilingual-e5-small` en espanol telefonico mal transcrito (el STT deforma nombres y entidades); si 3B redacta bien con citas (las pruebas de auditoria mostraron que el 3B es debil; quiza haga falta modo `preciso` para el chat); tiempos reales de indexado y de respuesta; el GGUF de embeddings es una conversion de la comunidad (`TwinSunsLLC/multilingual-e5-small-gguf`): verificar licencia y nombre de archivo (`scripts/descargar_modelos.py --chat` elige el .gguf Q8_0 del repo); `--embeddings --pooling mean` de `llama-server` no se ha ejecutado aun contra el binario real. Si el chat se abre a varias personas o se mueve a un servidor, falta autenticacion (hoy solo 127.0.0.1).
+
 ## 17. Registro de decisiones
 
 | Fecha | ID | Decisión | Motivo |
@@ -677,6 +693,9 @@ Entregable de gestión (no es parte del motor de auditoría): `presentacion/Eval
 | 2026-10-06 | D-27 | Evidencia por coincidencia aproximada exige texto ≥60 % del tamaño de la frase (bug `partial_ratio`); medico solo en consultas | Revisión con datos reales |
 | 2026-10-05 | D-13 | Llamadas entrantes y salientes; entidades: **Angiografía de Occidente** y **Nueva EPS** → `entity.yaml` con perfiles por entidad; roles por contenido, no por "quién habla primero" | Dato del usuario |
 | 2026-10-11 | D-32 | Panel de quejas: registro manual con plazos por prioridad + sugerencias por léxico exacto en turnos del cliente (las confirma una persona). Datos en `data/quejas.json`, fuera de git | Usuario pidió panel de quejas |
+| 2026-10-13 | D-33 | Asistente de consulta: SQLite (FTS5 + vectores float16 en numpy) en vez de un motor vectorial externo; preguntas estructuradas se responden con codigo sin IA | Costo = CPU local; coherente con D-04/D-05 |
+| 2026-10-13 | D-34 | La IA del chat nunca corre durante un lote de auditoria; embeddings opcionales (sin ellos, solo palabras) | D-03/D-09 |
+| 2026-10-13 | D-35 | Enmascarar numeros largos antes de indexar y borrar fragmentos/vectores al eliminar una llamada | Privacidad (R8, Ley 1581) |
 
 *(Agregar filas nuevas aquí cada vez que se decida algo importante. Modelo de STT/LLM/diarización: **sin decidir** hasta el benchmark.)*
 

@@ -12,6 +12,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
   if (p.theme === "light" || p.theme === "dark") d.dataset.theme = p.theme; if (p.size === "grande") d.style.setProperty("--fs", "18px"); } catch (e) {}
 </script>
 <link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/chat.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -31,6 +32,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
   <symbol id="i-brush" viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 11 18l-5-5z"/><path d="M6 13c-2 0-3 1.5-3 3.5S2 20 2 20s4 .5 5.5-1 1-3.5 1-3.5"/></symbol>
   <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></symbol>
   <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.2A8 8 0 1 1 21 12z"/><path d="M8.5 11.5h7M8.5 14.5h4"/></symbol>
   <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M12 8v4M12 15.5v.01"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
@@ -38,12 +40,13 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
 <div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
 
 <header class="top">
-  <div class="brand"><span class="logo"><svg class="i"><use href="#i-headset"/></svg></span><img class="brand-logo" src="/static/logo-angiografia.png" alt="Angiografía de Occidente" width="110" height="44" onerror="this.remove();document.documentElement.classList.add('no-logo')"><div><h1>Auditoría de Llamadas</h1><p>Todo se procesa en este computador. Ningún audio sale de aquí.</p></div></div>
+  <div class="brand"><span class="logo"><svg class="i"><use href="#i-headset"/></svg></span><img class="brand-logo" src="/static/logo-angiografia.png" alt="Angiografía de Occidente" width="110" height="44" onerror="this.remove();document.documentElement.classList.add('no-logo')"><div><h1>Auditoría de Llamadas</h1><p>Los audios se procesan en este computador y no salen de aquí. Solo si elige IA externa se envían textos de las llamadas al proveedor.</p></div></div>
   <nav class="tabs" id="tabs">
     <span class="glider" id="glider"></span>
     <button class="tab active" data-view="cargar"><b>1</b> Cargar y analizar</button>
     <button class="tab" data-view="resultados"><b>2</b> Resultados y revisión</button>
     <button class="tab" data-view="quejas"><b>3</b> Quejas</button>
+    <button class="tab" data-view="asistente"><svg class="i"><use href="#i-chat"/></svg> Asistente</button>
     <button class="tab" data-view="config"><svg class="i"><use href="#i-gear"/></svg> Configuración</button>
   </nav>
   <div class="top-actions">
@@ -72,6 +75,8 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
           <span><b>Rápido</b><small>Menos de 1 min por llamada con la IA. Recomendado para empezar.</small></span></label>
         <label class="mode"><input type="radio" name="mode" value="preciso"><span class="mode-ic"><svg class="i"><use href="#i-target"/></svg></span>
           <span><b>Preciso</b><small>Unos 3 min por llamada con la IA. Más exacto, ideal para dejar corriendo.</small></span></label>
+        <label class="mode"><input type="radio" name="mode" value="externa"><span class="mode-ic"><svg class="i"><use href="#i-spark"/></svg></span>
+          <span><b>IA externa</b><small id="extModeSmall">Groq o Gemini en la nube: rápida y sin instalar modelos. Los textos de las llamadas salen del equipo.</small></span></label>
         <label class="mode"><input type="radio" name="mode" value="sin"><span class="mode-ic"><svg class="i"><use href="#i-rule"/></svg></span>
           <span><b>Solo reglas</b><small>Sin IA. Es lo más rápido; deja más criterios por revisar a mano.</small></span></label>
       </div>
@@ -156,6 +161,25 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
       <p class="count-line" id="qCount"></p>
       <div class="table-wrap"><table class="calls" id="qTable"></table></div>
       <p class="empty" id="qEmpty" hidden>Aún no hay quejas registradas. Use «Nueva queja» o registre una de las detectadas en las llamadas.</p>
+    </div>
+  </section>
+
+  <!-- ============ ASISTENTE ============ -->
+  <section id="view-asistente" class="view">
+    <div class="card chat-card" style="--i:0">
+      <div class="chat-head">
+        <div><h2>Asistente de consulta</h2><p>Pregunte por conteos, rankings y listas, o por lo que se dijo en las llamadas. Los conteos y listas se calculan en este equipo; las preguntas abiertas usan la IA que elija aquí.</p></div>
+        <div class="chat-side"><div class="seg" id="chatEngineSeg" role="group" aria-label="IA del asistente"></div>
+          <div class="chat-status" id="chatStatus"></div></div>
+      </div>
+      <div class="chat-log" id="chatLog" aria-live="polite"></div>
+      <div class="chat-suggest" id="chatSuggest"></div>
+      <form class="chat-form" id="chatForm" autocomplete="off">
+        <textarea id="chatInput" rows="1" maxlength="600" placeholder="Ej. ¿Qué asesor falla más la despedida este mes?" aria-label="Pregunta"></textarea>
+        <button class="btn primary" id="chatSend" type="submit">Enviar</button>
+        <button class="btn danger" id="chatStop" type="button" hidden>Detener</button>
+      </form>
+      <p class="hint"><svg class="i"><use href="#i-shield"/></svg> Los números largos (documentos, teléfonos) se enmascaran antes de buscar. La conversación no se guarda: al cerrar la pestaña se borra.</p>
     </div>
   </section>
 
@@ -288,5 +312,6 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
 </div>
 <div id="toast" class="toast" hidden></div>
 <script src="/static/app.js"></script>
+<script src="/static/chat.js"></script>
 </body>
 </html>

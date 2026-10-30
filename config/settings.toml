@@ -1,4 +1,4 @@
-# Configuracion del pipeline. Todo local; ninguna API externa.
+# Configuracion del pipeline. Por defecto todo local; una API externa solo si el instalador (.env) la elige.
 [paths]
 data_dir = "data"                 # relativo a la raiz del proyecto
 models_dir = "models"
@@ -55,16 +55,42 @@ min_role_confidence = 0.3
 path = "Base_maestra_preparacion_examenes.xlsx"   # Excel del usuario: preparaciones, documentos y sedes
 
 [llm]
+# local (llama.cpp, sin internet) | groq | gemini. LLM_PROVIDER en .env manda sobre este valor (lo escribe Instalar.bat)
+provider = "local"
 # "rapido" = Qwen2.5-3B (~1 min/llamada); "preciso" = Qwen2.5-7B (~3 min/llamada, mas citas verificables)
 mode = "rapido"
 models = { rapido = "llm/qwen2.5-3b-instruct-q4_k_m.gguf", preciso = "llm/Qwen2.5-7B-Instruct-Q4_K_M.gguf" }
-server_exe = "llm/llama.cpp/llama-server.exe"
+server_exe = ""                   # opcional: ruta bajo models/. Vacio = se busca solo (llama-server.exe en Windows, llama-server en Linux/macOS)
 port = 8089
 ctx = 8192
 threads = 4
 max_tokens = 900
 quote_min_ratio = 88              # una cita del LLM solo vale si aparece (aprox.) en la transcripcion
 
+[llm.remote]
+# Solo se usan si el proveedor es groq o gemini (las claves van en .env, nunca aqui)
+groq_model = "openai/gpt-oss-120b"   # llama-3.3-70b-versatile ya no esta en el catalogo de Groq (404, 2026-10-17)
+gemini_model = "gemini-1.5-flash"
+timeout_s = 60                    # limite por peticion a la API externa
+
 [review]
 pass_percent = 80                 # < 80 % = No aprobado (dato del usuario)
 
+
+[chat]
+# Asistente de consulta sobre las auditorias. Preguntas de conteo/ranking/listas se responden con codigo (sin IA);
+# solo las preguntas abiertas usan la IA local con unos pocos fragmentos recuperados.
+mode = "rapido"                   # IA local que redacta (rapido | preciso)
+embed_model = "llm/multilingual-e5-small-q8_0.gguf"   # opcional: si falta, la busqueda usa solo texto (FTS5)
+embed_port = 8090
+embed_query_prefix = "query: "    # e5 exige estos prefijos; si se cambia de modelo, ajustar o dejar vacio
+embed_doc_prefix = "passage: "
+top_k = 6                         # maximo de fragmentos que se entregan a la IA
+context_tokens = 1100             # presupuesto de tokens de contexto (la CPU lee ~40 tok/s: cada token cuesta)
+max_answer_tokens = 350
+window_words = 90                 # tamano aproximado de cada fragmento de transcripcion
+max_per_call = 2                  # diversidad: maximo de fragmentos por llamada
+min_cosine = 0.80                 # SIN CALIBRAR con datos reales: por debajo, un candidato vectorial no cuenta
+idle_stop_min = 10                # apaga la IA del chat tras N minutos sin usarla (libera RAM)
+cache_size = 64                   # respuestas recientes reutilizables
+history_chars = 240               # cuanto de cada turno previo se reenvia a la IA

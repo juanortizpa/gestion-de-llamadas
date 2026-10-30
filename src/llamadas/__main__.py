@@ -74,6 +74,45 @@ def _audit(args) -> int:
     return 0
 
 
+def _chat_cmd(args) -> int:
+    from .chat import ChatEngine
+
+    eng = ChatEngine()
+    st = eng.sync_now(rebuild=getattr(args, "rebuild", False))
+    emb = "activos" if eng.status()["vectors_enabled"] else "no disponibles (busqueda solo por palabras)"
+    print(f"Indice: {eng.store.stats()['calls']} llamadas · +{st['added']} nuevas, {st['updated']} actualizadas, {st['removed']} borradas · "
+          f"vectores {emb}" + (f" · aviso embeddings: {st['embed_error']}" if st.get("embed_error") else ""))
+    if args.cmd == "index":
+        return 0
+    ctx, hist = None, []
+    questions = [" ".join(args.question)] if args.question else None
+    try:
+        while True:
+            q = questions.pop(0) if questions else (input("\nPregunta (vacio para salir): ").strip() if args.question == [] else None)
+            if not q:
+                break
+            r = eng.ask(q, ctx, hist, debug=args.debug)
+            print(f"\n[{r['route']}] " + (" · ".join(r["filters"]) if r["filters"] else "sin filtros"))
+            print(r["answer"])
+            for s in r["sources"]:
+                print(f"   [{s['n']}]{'*' if s.get('cited') else ' '} {s['call_id']} {s.get('ctx', '')}")
+            for w in r["warnings"]:
+                print("   AVISO:", w)
+            if args.debug:
+                print("   stats:", r["stats"])
+            ctx = r["ctx"]
+            hist = (hist + [{"q": q, "a": r["answer"][:400]}])[-3:]
+            if args.question and not questions:
+                break
+    except (EOFError, KeyboardInterrupt):
+        pass
+    finally:
+        eng.gen.server.stop()
+        if eng.embedder is not None:
+            eng.embedder.close()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="llamadas")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -88,17 +127,24 @@ def main(argv: list[str] | None = None) -> int:
     a = sub.add_parser("audit", help="Fase 2: transcripcion -> auditoria parcial por reglas/timestamps")
     a.add_argument("paths", nargs="*", help="*.transcript.json o carpeta (por defecto data/results)")
     a.add_argument("--detail", action="store_true", help="muestra sub-checks y evidencia")
+    ix = sub.add_parser("index", help="Asistente: actualiza el indice de busqueda (fragmentos y vectores) con las auditorias existentes")
+    ix.add_argument("--rebuild", action="store_true", help="borra el indice y lo reconstruye")
+    ch = sub.add_parser("chat", help="Asistente de consulta en la terminal (sin interfaz grafica)")
+    ch.add_argument("question", nargs="*", help="pregunta unica; sin ella abre una conversacion")
+    ch.add_argument("--debug", action="store_true", help="muestra la ruta, los filtros y los puntajes de busqueda")
     args = ap.parse_args(argv)
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+    if args.cmd in ("index", "chat"):
+        return _chat_cmd(args)
     if args.cmd == "resolve":
         import json
 
         from .audit import save_audit
         from .auditor import classify_completion, pending_items, resolve_with_llm
         from .config import load_settings
-        from .llm import LlamaServer
+        from .llm import make_llm
 
         s = load_settings()
         todo = []
@@ -107,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
             if not au.get("synthetic") and (pending_items(au) or ("completion" not in au and au.get("criteria"))):
                 todo.append((f, au))
         print(f"{len(todo)} auditorias por resolver (criterios pendientes o cierre sin clasificar)")
-        with LlamaServer(s, args.mode) as srv:
+        with make_llm(s, args.mode) as srv:
             for f, au in todo:
                 cid = au["call"]["call_id"]
                 tr = json.loads((s.data_dir / "results" / f"{cid}.transcript.json").read_text(encoding="utf-8"))
