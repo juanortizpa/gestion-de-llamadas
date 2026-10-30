@@ -2,7 +2,7 @@
 
 Uso:  .venv\\Scripts\\python.exe scripts\\descargar_modelos.py [--preciso]
 
-  (siempre)   Whisper medium, diarizacion (segmentacion + titanet), llama.cpp y Qwen2.5-3B  (~3 GB)
+  (siempre)   Whisper large-v3 (el de config/settings.toml), diarizacion (segmentacion + titanet), llama.cpp y Qwen2.5-3B  (~5 GB)
   --preciso   ademas Qwen2.5-7B (~4.5 GB), para el modo "Preciso"
   --chat      ademas el modelo de embeddings del Asistente (~150 MB; sin el, el Asistente busca solo por palabras)
 
@@ -36,9 +36,12 @@ def bajar(url: str, dest: Path) -> None:
 
 
 def whisper() -> None:
-    print("[1/4] Whisper medium (voz a texto)")
+    """Baja el MISMO modelo que usa la app ([stt] model en config/settings.toml); si no, el primer analisis lo bajaria sin avisar."""
+    import tomllib
+    modelo = tomllib.loads((ROOT / "config" / "settings.toml").read_text(encoding="utf-8"))["stt"]["model"]
+    print(f"[1/4] Whisper {modelo} (voz a texto)")
     from faster_whisper.utils import download_model
-    print("  listo:", download_model("medium"))
+    print("  listo:", download_model(modelo))
 
 
 def diarizacion() -> None:
@@ -135,7 +138,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--preciso", action="store_true", help="descarga tambien Qwen2.5-7B (modo Preciso)")
     ap.add_argument("--chat", action="store_true", help="descarga tambien el modelo de embeddings del Asistente")
-    ap.add_argument("--solo-voz", action="store_true", help="solo voz a texto y separacion de hablantes (~1,7 GB): para usar IA externa")
+    ap.add_argument("--solo-voz", action="store_true", help="solo voz a texto y separacion de hablantes (~3,2 GB): para usar IA externa")
     a = ap.parse_args()
     MODELS.mkdir(exist_ok=True)
     LLM.mkdir(exist_ok=True)
