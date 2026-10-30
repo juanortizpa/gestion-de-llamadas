@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: [harold]
-    paths: [".github/workflows/eval-rag.yml"]
+    paths: [".github/workflows/eval-rag.yml", "src/llamadas/chat/**", "eval/casos.py"]
 
 jobs:
   rag:
