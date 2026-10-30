@@ -14,6 +14,8 @@ from .router import STOP, Parsed
 from .store import Store
 
 RRF_K = 60
+# la pregunta es sobre la EVALUACION (no sobre lo que se hablo): solo entonces pesan mas los fragmentos de criterio
+EVAL_RE = re.compile(r"criteri|cumpl|fall|nota|calific|evalu|audit|puntaj|aprob|\b[pvgcz][12]\b")
 
 
 def est_tokens(text: str) -> int:
@@ -92,7 +94,9 @@ def search(store: Store, p: Parsed, allowed: set[str] | None, embedder, cfg: dic
         score[cid] = score.get(cid, 0) + 1 / (RRF_K + rank)
         via.setdefault(cid, set()).add("vec")
     chunks = store.chunks_by_ids(list(score))
-    crit = set(p.filters.criteria)
+    # "preparacion" (Z1) o "esperar" (G1) en una pregunta sobre la conversacion no bastan: subian el criterio de TODAS las
+    # llamadas y desplazaban a la transcripcion con la respuesta (docs/decisiones.md §3)
+    crit = set(p.filters.criteria) if EVAL_RE.search(normalize(p.text)) else set()
     wants_obs = bool(re.search(r"observaci|plan de accion|anoto|comentari", normalize(p.text)))
     for cid, ch in chunks.items():
         if ch["criterion"] in crit:

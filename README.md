@@ -35,7 +35,7 @@ y muestra el **menú de instalación**: IA **local** (descarga los modelos, ~5 G
 | `¿Incluir modo Preciso (+4,5 GB, ...)? [s/N]` | No | Baja Qwen2.5-7B. Solo conviene con 16 GB de RAM |
 | `¿Incluir busqueda semantica del Asistente (+150 MB)? [S/n]` | Sí | Modelo de embeddings para que el Asistente busque por significado |
 
-La descarga de Qwen2.5-3B (~2 GB) no muestra barra de progreso: si la consola parece quieta unos minutos, está descargando. Al terminar, el programa se abre solo en `http://127.0.0.1:8765`.
+Cada descarga muestra su porcentaje de avance; la de Qwen2.5-3B (~2 GB) puede tardar varios minutos con una conexión lenta. Al terminar, el programa se abre solo en `http://127.0.0.1:8765`.
 
 **Cuánto tarda** (prueba del compañero, 2026-10-29; detalle en [docs/decisiones.md](docs/decisiones.md) §6):
 
@@ -44,7 +44,7 @@ La descarga de Qwen2.5-3B (~2 GB) no muestra barra de progreso: si la consola pa
 | Mac M1, 8 GB, Python ya instalado | ~5 min | 9,5 min para 87 s de audio |
 | Windows, i5-1035G1, 8 GB, solo CPU, sin Python | ~22 min | ~11 min para 36 s de audio |
 
-Sin GPU NVIDIA casi todo ese tiempo es la transcripción (Whisper large-v3 en CPU); la IA local suma entre 25 s y 4 min. El «Menos de 1 min» de la tarjeta *Rápido* es solo la IA, con GPU.
+Sin GPU NVIDIA casi todo ese tiempo es la transcripción (Whisper large-v3 en CPU); la IA local suma entre 25 s y 4 min. La tarjeta *Rápido* lo aclara: el «menos de 1 min» es solo la IA; sin GPU la transcripción tarda más.
 
 En Linux de Debian/Ubuntu puede hacer falta `sudo apt install python3-venv`. La parte local de la IA usa los binarios de
 llama.cpp de cada sistema (Windows, macOS y Linux, x64 y arm64), que el instalador baja solo. Los pasos manuales de más abajo
@@ -249,7 +249,7 @@ models/         (local, ignorado) modelos descargados
 ## Privacidad
 
 - Nunca suba a git audios, transcripciones, `data/`, `models/` ni `config/agents.toml` (ya están en `.gitignore`).
-- La única excepción es `audios/`: 14 llamadas reales autorizadas para pruebas. Solo pueden estar mientras el repositorio sea **privado** y con acceso del equipo autorizado, y **no van en el ZIP de la entrega**.
+- La única excepción es `audios/`: 14 llamadas reales autorizadas para pruebas. Solo pueden estar mientras el repositorio sea **privado** y con acceso del equipo autorizado. **Van incluidas en el ZIP de la entrega**: compártanlo solo con personas autorizadas.
 - El servidor solo escucha en `127.0.0.1`. Active BitLocker en el disco.
 - El botón **Eliminar llamada** borra audio, transcripción y resultados de esa llamada.
 
@@ -258,6 +258,7 @@ models/         (local, ignorado) modelos descargados
 | Síntoma | Solución |
 |---|---|
 | `Repository not found` o error 404 al descargar | El repositorio es privado: inicie sesión con una cuenta que tenga acceso o pida al equipo que lo agreguen como colaborador |
+| Tengo GPU NVIDIA y la IA local va lenta | El instalador baja llama.cpp para CPU. En Windows, descargue de [los releases de llama.cpp](https://github.com/ggml-org/llama.cpp/releases) `llama-bXXXX-bin-win-cuda-12.4-x64.zip` y `cudart-llama-bin-win-cuda-12.4-x64.zip` y descomprima los dos en `models/llm/llama-cuda/`: la aplicación lo usa sola si existe (así se midieron los modelos locales en la RTX 3050) |
 | Falla la descompresión del ZIP («No se puede encontrar una parte de la ruta») | Descomprímalo en una ruta corta, por ejemplo `C:\gdl` |
 | Escribir `python` abre la Microsoft Store | Python no está instalado: `winget install --id Python.Python.3.12 -e` |
 | macOS/Linux: `python: command not found` | Use `python3 iniciar.py` o `./run.sh` |
