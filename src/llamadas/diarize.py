@@ -62,6 +62,9 @@ def diarize(audio: np.ndarray, recorded: list[dict], settings: Settings) -> tupl
         c0, c1, o = offs[-1]
         return o + (c1 - c0)
 
+    # Silencio al final: si el ultimo segmento de habla toca el borde del audio, sherpa-onnx 1.13 recorta su
+    # embedding y aborta el proceso entero en C++ ("This segment is too short"); Python no lo puede capturar.
+    cat = np.concatenate([cat, np.zeros(2 * SR, dtype=cat.dtype)])
     res = _get_sd(settings).process(cat).sort_by_start_time()
     segs: list[dict] = []
     for r in res:
