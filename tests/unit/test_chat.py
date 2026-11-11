@@ -395,6 +395,8 @@ def _serve(eng, monkeypatch):
 
     from llamadas.gui import server
     monkeypatch.setattr(server, "chat_engine", lambda: eng)
+    # aqui se prueba el flujo del chat; la sesion y los permisos se prueban en test_seguridad_web.py
+    monkeypatch.setattr(server.Handler, "_gate", lambda self, method, p: {"user": "prueba", "name": "", "role": "admin", "csrf": ""})
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, _json
