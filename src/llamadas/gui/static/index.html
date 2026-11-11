@@ -260,7 +260,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
           <div><h2>Este equipo</h2><p>Estado de la IA local y reglas de la nota.</p></div></div>
         <ul class="sysinfo" id="sysInfo"></ul>
         <div class="row"><button class="btn" id="btnResetPrefs">Restablecer diseño original</button></div>
-        <p class="hint"><svg class="i"><use href="#i-shield"/></svg> La app solo funciona en este computador (127.0.0.1). Los audios y resultados viven en la carpeta <b>data</b>.</p>
+        <p class="hint"><svg class="i"><use href="#i-shield"/></svg> La app solo funciona en este computador (127.0.0.1) y exige iniciar sesión. Los audios y resultados viven en la carpeta <b>data</b>.</p>
       </div>
     </div>
     <div class="card" style="--i:2" id="mailCard">
@@ -392,6 +392,7 @@ try { const p = JSON.parse(localStorage.getItem("auditoria.prefs") || "{}"), d =
   </div>
 </div>
 <div id="toast" class="toast" hidden></div>
+<script src="/static/auth.js"></script>
 <script src="/static/app.js"></script>
 <script src="/static/chat.js"></script>
 <script src="/static/vocab.js"></script>
