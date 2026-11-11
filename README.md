@@ -246,11 +246,27 @@ data/           (local, ignorado) audios, transcripciones y resultados
 models/         (local, ignorado) modelos descargados
 ```
 
+## Inicio de sesión y seguridad
+
+La aplicación exige iniciar sesión. **La primera vez** que se abre, la pantalla pide crear la cuenta de **administrador** (contraseña de al menos 10 caracteres, con letras y números). Después, el administrador crea un usuario para cada auditor en **Configuración → Usuarios y accesos**.
+
+| Rol | Puede |
+|---|---|
+| Auditor | Cargar y analizar llamadas, revisar, registrar quejas, usar el Asistente y exportar |
+| Administrador | Todo lo anterior y, además, eliminar llamadas y quejas, configurar el correo, limpiar las trazas, crear y eliminar usuarios y ver la bitácora de accesos |
+
+- La sesión se cierra sola tras 30 minutos sin uso, y siempre al cerrar el programa.
+- Tras 5 contraseñas incorrectas seguidas, ese usuario queda bloqueado 5 minutos.
+- No hay «recuperar contraseña»: un administrador crea un usuario nuevo. Si se pierde la del único administrador, cierre el programa y borre `data/usuarios.json` para volver a crearlo (las llamadas no se tocan).
+- Los usuarios y la bitácora viven en `data/` (`usuarios.json`, `accesos.jsonl`), que no se versiona. Las contraseñas nunca se guardan: solo su derivado.
+
+El modelo de amenazas, el ataque de inyección que se probó contra la propia aplicación y la tabla de antes y después están en [docs/seguridad.md](docs/seguridad.md).
+
 ## Privacidad
 
 - Nunca suba a git audios, transcripciones, `data/`, `models/` ni `config/agents.toml` (ya están en `.gitignore`).
 - La única excepción es `audios/`: 14 llamadas reales autorizadas para pruebas. Solo pueden estar mientras el repositorio sea **privado** y con acceso del equipo autorizado. **Van incluidas en el ZIP de la entrega**: compártanlo solo con personas autorizadas.
-- El servidor solo escucha en `127.0.0.1`. Active BitLocker en el disco.
+- El servidor solo escucha en `127.0.0.1` y exige iniciar sesión. Active BitLocker en el disco.
 - El botón **Eliminar llamada** borra audio, transcripción y resultados de esa llamada.
 
 ## Problemas frecuentes
