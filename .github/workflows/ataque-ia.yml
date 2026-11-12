@@ -38,8 +38,10 @@ jobs:
       - name: Casos dorados (el validador nuevo no debe descartar respuestas legitimas)
         run: |
           python eval/run_eval.py --suite auditoria --engine local --mode rapido --reps 1 | tee dorados.txt
-          n=$(grep -c "cita_de_otro_rol_descartada" "$(ls -t eval/resultados/*_detalle.csv | head -1)" || true)
+          f="$(ls -t eval/resultados/*_detalle.csv | head -1)"
+          n=$(grep -c "cita_de_otro_rol_descartada" "$f" || true)
           { echo "### Casos dorados con Qwen2.5-3B"; echo '```'; cat dorados.txt; echo '```'; echo "Respuestas descartadas por ser del otro interlocutor: $n"; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "Filas descartadas (caso, sub-check, esperado):"; echo '```'; grep "cita_de_otro_rol_descartada" "$f" | cut -d, -f6,10,12,13 || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
