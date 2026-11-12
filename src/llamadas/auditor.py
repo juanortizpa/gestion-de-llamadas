@@ -29,6 +29,9 @@ QUESTIONS = {
 # Quien debe decir la cita. Una frase del cliente no prueba lo que hizo el asesor: sin esto bastaba con que el cliente dijera
 # en la llamada «gracias por verificar mi orden» para que la IA la citara y el criterio pasara (docs/seguridad.md).
 QUOTE_ROLE = {k: ("CLIENTE" if k == ("V1", "cliente_responde_numero") else "ASESOR") for k in QUESTIONS}
+# Preguntas de juicio: un «sí» de la IA no aprueba solo; queda como sugerencia con su cita y decide una persona. En C1 el ataque
+# de inyeccion consiguio que la IA dijera «sí» citando una frase real del asesor que no lo probaba (docs/seguridad.md §6).
+SUGGEST_ONLY = {("C1", "comprende_la_necesidad")}
 SCHEMA = {"type": "object", "properties": {"checks": {"type": "array", "items": {
     "type": "object",
     "properties": {"id": {"type": "string"}, "passed": {"type": "boolean"}, "turn_id": {"type": "integer"},
@@ -230,7 +233,11 @@ def resolve_with_llm(audit: dict, tr: dict, server: LlamaServer, settings: Setti
             continue
         if a["passed"]:
             t = verify_quote(a.get("quote", ""), tr["turns"], a.get("turn_id", 0), min_ratio, QUOTE_ROLE[(code, sid)])
-            if t:
+            if t and (code, sid) in SUGGEST_ONLY:
+                sub.update(ai_hint=True, evidence={"turn_id": t["turn_id"], "quote": a["quote"][:220], "start": t["start"], "end": t["end"]})
+                sub["note"] = (sub.get("note") or "") + " | IA sugiere 'sí' (confirmar): pregunta de juicio, la decide una persona"
+                log.append({"id": f"{code}.{sid}", "result": "si_sugerido"})
+            elif t:
                 sub.update(passed=True, source="llm", evidence={"turn_id": t["turn_id"], "quote": a["quote"][:220],
                                                                  "start": t["start"], "end": t["end"]})
                 log.append({"id": f"{code}.{sid}", "result": "si_verificado"})

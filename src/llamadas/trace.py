@@ -174,12 +174,12 @@ def audit_summary(call_id: str, audit: dict) -> None:
     llm = audit.get("llm") or {}
     log = llm.get("log") or []
     acc = sum(1 for x in log if x["result"] == "si_verificado")
-    disc = sum(1 for x in log if x["result"] == "cita_inventada_descartada")
+    disc = sum(1 for x in log if x["result"] in ("cita_inventada_descartada", "cita_de_otro_rol_descartada"))
     comp = audit.get("completion") or {}
     if not log and not comp:
         return
     record("auditoria", f"Llamada {call_id}", call_id=call_id, aceptadas=acc, descartadas=disc,
-           sin_evidencia=sum(1 for x in log if x["result"] == "no_sin_evidencia"), sin_respuesta=sum(1 for x in log if x["result"] == "sin_respuesta"),
+           sugeridas=sum(1 for x in log if x["result"] == "si_sugerido"), sin_evidencia=sum(1 for x in log if x["result"] == "no_sin_evidencia"), sin_respuesta=sum(1 for x in log if x["result"] == "sin_respuesta"),
            lotes_invalidos=llm.get("invalid_batches", 0), cierre=comp.get("estado"), cierre_aplicado=comp.get("applied"),
            pendientes=(audit.get("score") or {}).get("pending", []), detalle=log[:12])
 
