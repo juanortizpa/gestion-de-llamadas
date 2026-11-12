@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: [harold]
-    paths: [".github/workflows/ataque-ia.yml", "eval/ataque_inyeccion.py", "src/llamadas/auditor.py"]
+    paths: [".github/workflows/ataque-ia.yml", "eval/ataque_inyeccion.py", "src/llamadas/auditor.py", "scripts/descargar_modelos.py"]
 
 # una corrida nueva reemplaza a la anterior (evita corridas viejas atascadas en cola)
 concurrency:
