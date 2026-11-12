@@ -94,11 +94,13 @@ def llama_cpp() -> None:
         print("  ya existe")
         return
     key = llama_asset_key()
-    rels = json.load(urllib.request.urlopen("https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=10"))
-    rel = next(r for r in rels if r["tag_name"].startswith("b"))
-    asset = next((a for a in rel["assets"] if f"bin-{key}." in a["name"] and a["name"].endswith((".zip", ".tar.gz"))), None)
+    rels = [r for r in json.load(urllib.request.urlopen("https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=10"))
+            if r["tag_name"].startswith("b")]
+    # el release mas nuevo a veces sale sin todos los paquetes (b12314 no traia ubuntu-x64): se usa el mas reciente que lo traiga
+    rel, asset = next(((r, a) for r in rels for a in r["assets"] if f"bin-{key}." in a["name"] and a["name"].endswith((".zip", ".tar.gz"))),
+                      (None, None))
     if asset is None:
-        raise SystemExit(f"El release {rel['tag_name']} de llama.cpp no trae el paquete '{key}'. Descargue llama.cpp a mano en {base}")
+        raise SystemExit(f"Ninguno de los {len(rels)} releases recientes de llama.cpp trae el paquete '{key}'. Descargue llama.cpp a mano en {base}")
     pkg = LLM / asset["name"]
     bajar(asset["browser_download_url"], pkg)
     base.mkdir(parents=True, exist_ok=True)
