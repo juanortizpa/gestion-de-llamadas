@@ -41,7 +41,7 @@ jobs:
           f="$(ls -t eval/resultados/*_detalle.csv | head -1)"
           n=$(grep -c "cita_de_otro_rol_descartada" "$f" || true)
           { echo "### Casos dorados con Qwen2.5-3B"; echo '```'; cat dorados.txt; echo '```'; echo "Respuestas descartadas por ser del otro interlocutor: $n"; } >> "$GITHUB_STEP_SUMMARY"
-          { echo "Filas descartadas (caso, sub-check, esperado):"; echo '```'; grep "cita_de_otro_rol_descartada" "$f" | cut -d, -f6,10,12,13 || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "Filas descartadas (caso, esperado, obtenido, correcto, sub-check):"; echo '```'; grep "cita_de_otro_rol_descartada" "$f" | cut -d, -f6,14,15,16,17 || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
