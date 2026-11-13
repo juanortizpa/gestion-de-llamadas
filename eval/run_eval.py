@@ -177,7 +177,7 @@ def run_audit(S, meter: Meter | None, reps: int, pause: float, rows: list, ctx: 
             for x in ((au.get("llm") or {}).get("log", []) if caso.cierre == "finalizada" else []):
                 code, sid = x["id"].split(".", 1)
                 exp = caso.sub.get(x["id"], caso.esperado.get(code) == 1)
-                pred = x["result"] == "si_verificado"
+                pred = x["result"] in ("si_verificado", "si_sugerido")  # la IA dijo «sí» con una cita valida (en C1 queda como sugerencia)
                 ia_tot += 1
                 ia_ok += pred == exp
                 rows.append({**base, "tipo": "subcheck_ia", "nota": x["id"], "esperado": exp, "obtenido": x["result"], "correcto": int(pred == exp)})

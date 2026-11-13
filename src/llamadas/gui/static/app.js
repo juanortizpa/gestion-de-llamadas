@@ -112,6 +112,8 @@ const NOTE_RULES = [
   [/peticiones=/, ""], [/banderas_debiles=/, ""], [/marcadores_de_cortesia=/, ""],
   [/no exigido: no parece una consulta/, "No se exige médico: no parece una consulta médica."],
   [/no requiere preparacion/, null], [/REQUIERE preparacion/, null], [/examen no encontrado/, "El examen no está en la base maestra: no se sabe si requiere preparación."],
+  [/IA sugiere 'sí'/, "La IA sugiere que sí (cita arriba). Es una pregunta de juicio: confírmela usted."],
+  [/frase del otro interlocutor/, "La IA dijo que sí citando al otro interlocutor: no cuenta como evidencia. Confirme escuchando."],
   [/LLM dijo 'sí' pero su cita no está/, "La IA dijo que sí, pero su cita no aparece en la conversación: se descartó."],
   [/LLM: sin evidencia/, "La IA no encontró evidencia: confirme escuchando."],
   [/silencio largo sin anunciar/, "Hubo un silencio largo sin avisar al cliente."],

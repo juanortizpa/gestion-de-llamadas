@@ -48,7 +48,8 @@ function trzRow(e) {
   tr.append(el("td", "", e.ts.slice(11)), what, el("td", "", model), el("td", "num", secs), el("td", "num", tok), r);
   if (TRZ.open.has(e.id) && detail) {
     const d = el("tr", "trz-det"), td = el("td"); td.colSpan = 6;
-    const lines = (e.detalle || []).map(x => `${x.id}: ${({ si_verificado: "✔ cita verificada", cita_inventada_descartada: "✖ cita inventada, descartada",
+    const lines = (e.detalle || []).map(x => `${x.id}: ${({ si_verificado: "✔ cita verificada", cita_inventada_descartada: "✖ cita inventada, descartada", cita_de_otro_rol_descartada: "✖ cita del otro interlocutor, descartada",
+    si_sugerido: "? sugerencia de la IA, la confirma el auditor",
       no_sin_evidencia: "la IA no encontró evidencia", sin_respuesta: "sin respuesta" })[x.result] || x.result}`).concat((e.avisos || []).map(w => "⚠ " + w));
     td.append(el("pre", "", lines.join("\n"))); d.append(td); return [tr, d];
   }

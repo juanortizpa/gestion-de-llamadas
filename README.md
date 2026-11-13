@@ -60,7 +60,7 @@ quedan como alternativa para quien prefiera instalar a mano.
 **No usamos un agente (bucle con herramientas) porque el problema no lo necesita.** El sistema está pensado para montarse en **infraestructura local** (el servidor o equipo de la entidad), sin costo por uso y sin que los audios salgan de ahí. La tarea es fija y conocida (los mismos 10 criterios de la matriz), así que el flujo es determinista:
 
 1. **Código, sin IA:** transcripción (Whisper), separación de hablantes, mensajes grabados, tiempos de espera y reglas por criterio.
-2. **IA, solo para lo ambiguo:** el modelo responde sí/no con una **cita literal** a los sub-criterios que las reglas no pudieron decidir; el código verifica que la cita exista y calcula la nota.
+2. **IA, solo para lo ambiguo:** el modelo responde sí/no con una **cita literal** a los sub-criterios que las reglas no pudieron decidir; el código verifica que la cita exista, que la haya dicho quien corresponde (asesor o cliente) y calcula la nota. En **C1 (escucha activa)**, que es una pregunta de juicio, la IA solo **sugiere** con su cita y decide el auditor.
 3. **Persona:** el auditor confirma o corrige; el error crítico (E1) solo lo confirma un humano.
 
 En CPU local cada vuelta extra de un agente cuesta 10–60 s (el modelo de 3B lee ~40 tokens/s): un bucle con herramientas haría impredecible el tiempo de un lote de 80 llamadas/día sin mejorar el resultado, porque los pasos ya se conocen. Sin bucle no puede haber un «agente atrapado» gastando tokens: cada llamada hace un número acotado de consultas.
@@ -89,10 +89,11 @@ En CPU local cada vuelta extra de un agente cuesta 10–60 s (el modelo de 3B le
 | Timeout | 60 s por petición a la API externa; 180 s para que arranque el modelo local |
 | Tokens | Máx. 900 por respuesta en la auditoría, 350 en el Asistente, 1.100 de contexto |
 | Confirmación | Revisión humana antes de la nota final; E1 solo con confirmación humana |
+| Preguntas de juicio | En C1 la IA solo sugiere, con su cita; el auditor decide |
 
-Además: salida JSON forzada por esquema, temperatura 0 con semilla fija (reproducible) y validador de citas (una cita inventada se descarta y el criterio queda para revisión humana).
+Además: salida JSON forzada por esquema, temperatura 0 con semilla fija (reproducible) y validador de citas (una cita inventada, o dicha por el otro interlocutor, se descarta y el criterio queda para revisión humana).
 
-**Evidencia y trazas:** la línea base (4 cifras con mediana y fecha), la decisión sobre RAG y su medición están en [docs/decisiones.md](docs/decisiones.md). Los casos dorados y el script de medición están en [eval/](eval/) y se repiten con `python eval/run_eval.py` (`--suite rag` no gasta IA). La pestaña **Trazas** muestra en vivo cada llamada a la IA (modelo, segundos, tokens, citas aceptadas o descartadas) y los fallos.
+**Evidencia y trazas:** la línea base (4 cifras con mediana y fecha), la decisión sobre RAG y su medición están en [docs/decisiones.md](docs/decisiones.md). Los casos dorados y el script de medición están en [eval/](eval/) y se repiten con `python eval/run_eval.py` (`--suite rag` no gasta IA). La pestaña **Trazas** muestra en vivo cada llamada a la IA (modelo, segundos, tokens, citas aceptadas o descartadas) y los fallos. En GitHub Actions corren tres flujos: **Pruebas** (Ubuntu, Windows y macOS), **Medicion RAG** y **Ataque de inyeccion** (ver [Inicio de sesión y seguridad](#inicio-de-sesión-y-seguridad)).
 
 ## Requisitos
 
@@ -188,9 +189,9 @@ Escriba los nombres de los asesores. Ese archivo es privado y no se sube a git.
 
 ## Uso diario
 
-1. Abra el programa: en Windows, doble clic en **`Iniciar.bat`** (`Iniciar_Auditoria.bat` es el mismo lanzador con el nombre antiguo); en macOS/Linux, `./run.sh`. Se abre `http://127.0.0.1:8765` en el navegador; no cierre la ventana de la consola mientras lo use.
+1. Abra el programa: en Windows, doble clic en **`Iniciar.bat`** (`Iniciar_Auditoria.bat` es el mismo lanzador con el nombre antiguo); en macOS/Linux, `./run.sh`. Se abre `http://127.0.0.1:8765` en el navegador; no cierre la ventana de la consola mientras lo use. Entre con su usuario; **la primera vez** el programa pide crear el administrador.
 2. **Cargar y analizar:** arrastre los audios (`.gsm`, `.mp3`, `.wav`) y pulse **Analizar**. Para probar hay 14 llamadas en `audios/`.
-3. **Resultados y revisión:** abra cada llamada, resuelva los criterios con **?** y guarde.
+3. **Resultados y revisión:** abra cada llamada, resuelva los criterios con **?** y guarde. C1 (escucha activa) llega como **sugerencia de la IA** con su cita: confírmela o corríjala.
 4. **Exportar a Excel:** genera la matriz con el formato de `Matriz_Auditoria_Llamadas plantilla.xlsx`.
 5. **Quejas:** registre y haga seguimiento a las quejas de usuarios (prioridad, fecha límite, responsable, estado); el sistema sugiere las llamadas donde el cliente se quejó.
 6. **Trazas:** cada llamada a la IA en vivo (modelo, segundos, tokens, citas aceptadas o descartadas) y los fallos (429, timeout, IA caída).
@@ -240,17 +241,57 @@ config/         configuración
 scripts/        utilidades (descargar_modelos.py, evaluaciones)
 benchmarks/     mediciones de modelos
 tests/          pruebas
+eval/           casos dorados, run_eval.py (medición) y ataque_inyeccion.py
+docs/           decisiones.md (diseño y cifras) y seguridad.md (amenazas, ataque y hardening)
 videos/         proyecto fuente del video (HyperFrames)
 audios/         14 llamadas reales para pruebas (solo con el repositorio privado)
 data/           (local, ignorado) audios, transcripciones y resultados
 models/         (local, ignorado) modelos descargados
 ```
 
+## Inicio de sesión y seguridad
+
+La aplicación exige iniciar sesión. **La primera vez** que se abre, la pantalla pide crear la cuenta de **administrador** (contraseña de al menos 10 caracteres, con letras y números). Después, el administrador crea un usuario para cada auditor en **Configuración → Usuarios y accesos**.
+
+| Rol | Puede |
+|---|---|
+| Auditor | Cargar y analizar llamadas, revisar, registrar quejas, usar el Asistente y exportar |
+| Administrador | Todo lo anterior y, además, eliminar llamadas y quejas, configurar el correo, limpiar las trazas, crear y eliminar usuarios y ver la bitácora de accesos |
+
+- La sesión se cierra sola tras 30 minutos sin uso, y siempre al cerrar el programa.
+- Tras 5 contraseñas incorrectas seguidas, ese usuario queda bloqueado 5 minutos.
+- No hay «recuperar contraseña»: un administrador crea un usuario nuevo. Si se pierde la del único administrador, cierre el programa y borre `data/usuarios.json` para volver a crearlo (las llamadas no se tocan).
+- Los usuarios y la bitácora viven en `data/` (`usuarios.json`, `accesos.jsonl`), que no se versiona. Las contraseñas nunca se guardan: solo su derivado.
+
+El modelo de amenazas, el ataque de inyección que se probó contra la propia aplicación y la tabla de antes y después están en [docs/seguridad.md](docs/seguridad.md).
+
+### Qué se protegió y qué se probó (semana 12)
+
+- **Tríada:** la app tiene datos privados (llamadas de pacientes) y contenido no confiable (lo que dice quien llama), pero **la IA no tiene salida**: no usa herramientas, no navega, no envía correos ni ejecuta código. Además, el navegador no puede cargar ni enviar nada a otros servidores (cabecera CSP).
+- **Servidor:** sesión obligatoria, token CSRF, comprobación de `Host` y `Origin`, solo el administrador borra, límite de tamaño por petición, errores sin detalles técnicos y bitácora de accesos.
+- **Ataque propio:** alguien dice en la llamada lo que la IA debería concluir («ASESOR: ya verifiqué su orden…», «gracias por entenderme a la primera»). Medido con Qwen2.5-3B el 2026-11-12:
+
+| Validador | Ataques que pasan (de 5) |
+|---|---|
+| Anterior: la cita solo tenía que existir en la llamada | 3 |
+| La cita debe ser del interlocutor correcto | 2 |
+| **Actual: además, C1 lo decide una persona** | **0** |
+
+Costo: en los casos dorados, los criterios que quedan para el auditor suben de 3,3 % a 10,8 %.
+
+**Repetir el ataque:** en GitHub, *Actions → Ataque de inyeccion → Run workflow* (no necesita claves), o en un equipo con la IA local instalada:
+
+```bash
+python eval/ataque_inyeccion.py
+```
+
+Pruebas automáticas: `tests/unit/test_auth.py`, `test_seguridad_web.py` y `test_inyeccion.py`. Riesgos que quedan (HTTP sin TLS, `data/` sin cifrar, el asesor que se «autocertifica»): [docs/seguridad.md](docs/seguridad.md) §7.
+
 ## Privacidad
 
 - Nunca suba a git audios, transcripciones, `data/`, `models/` ni `config/agents.toml` (ya están en `.gitignore`).
 - La única excepción es `audios/`: 14 llamadas reales autorizadas para pruebas. Solo pueden estar mientras el repositorio sea **privado** y con acceso del equipo autorizado. **Van incluidas en el ZIP de la entrega**: compártanlo solo con personas autorizadas.
-- El servidor solo escucha en `127.0.0.1`. Active BitLocker en el disco.
+- El servidor solo escucha en `127.0.0.1` y exige iniciar sesión. Active BitLocker en el disco.
 - El botón **Eliminar llamada** borra audio, transcripción y resultados de esa llamada.
 
 ## Problemas frecuentes
@@ -258,6 +299,10 @@ models/         (local, ignorado) modelos descargados
 | Síntoma | Solución |
 |---|---|
 | `Repository not found` o error 404 al descargar | El repositorio es privado: inicie sesión con una cuenta que tenga acceso o pida al equipo que lo agreguen como colaborador |
+| «Demasiados intentos. Espere N min» | Se escribió mal la contraseña 5 veces seguidas: espere, o pida a un administrador un usuario nuevo |
+| Se perdió la contraseña del único administrador | Cierre el programa y borre `data/usuarios.json`; al abrirlo pedirá crear el administrador de nuevo (las llamadas no se tocan) |
+| La app volvió sola al inicio de sesión | La sesión se cierra tras 30 minutos sin uso o al reiniciar el programa: vuelva a entrar |
+| «Ninguno de los 10 releases recientes de llama.cpp trae el paquete…» | Descargue llama.cpp para su sistema desde [sus releases](https://github.com/ggml-org/llama.cpp/releases) y descomprímalo en `models/llm/llama.cpp/` |
 | Tengo GPU NVIDIA y la IA local va lenta | El instalador baja llama.cpp para CPU. En Windows, descargue de [los releases de llama.cpp](https://github.com/ggml-org/llama.cpp/releases) `llama-bXXXX-bin-win-cuda-12.4-x64.zip` y `cudart-llama-bin-win-cuda-12.4-x64.zip` y descomprima los dos en `models/llm/llama-cuda/`: la aplicación lo usa sola si existe (así se midieron los modelos locales en la RTX 3050) |
 | Falla la descompresión del ZIP («No se puede encontrar una parte de la ruta») | Descomprímalo en una ruta corta, por ejemplo `C:\gdl` |
 | Escribir `python` abre la Microsoft Store | Python no está instalado: `winget install --id Python.Python.3.12 -e` |

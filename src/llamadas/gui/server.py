@@ -1,4 +1,5 @@
-"""Interfaz grafica local (navegador). Solo escucha en 127.0.0.1: los audios y datos nunca salen del equipo."""
+"""Interfaz grafica local (navegador). Solo escucha en 127.0.0.1 y exige iniciar sesion (gui/seguridad.py): los audios y
+datos nunca salen del equipo."""
 from __future__ import annotations
 
 import io
@@ -22,11 +23,13 @@ from ..export import collect, export_xlsx
 from ..jobs import AUDIO_EXT, JobManager, forget, incoming_dir, store_dir
 from ..llm import make_llm
 from .. import feedback, notify, trace, vocab
+from . import seguridad
 from ..review import CODES, final_view, load_review, save_review, ui_state
 
 STATIC = Path(__file__).parent / "static"
 S = load_settings()
 JOBS = JobManager(S)
+seguridad.configurar(S.data_dir)       # usuarios, sesiones y bitacora de accesos (data/usuarios.json, data/accesos.jsonl)
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
 NL = bytes([10])        # separador de lineas del flujo NDJSON
 _CHAT = None
@@ -115,7 +118,8 @@ def _wav_for_playback(call_id: str) -> Path | None:
     return out
 
 
-class Handler(BaseHTTPRequestHandler):
+class Handler(seguridad.Protegido, BaseHTTPRequestHandler):
+    """Rutas de la aplicacion. seguridad.Protegido recibe cada peticion y solo llama a _get/_post/_delete si hay sesion y permiso."""
     server_version = "AuditoriaLlamadas"
 
     def log_message(self, *a):  # silencioso
@@ -159,7 +163,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(chunk)
 
     # --------------------------- GET
-    def do_GET(self):
+    def _get(self):
         u = urlparse(self.path)
         p = u.path
         if p in ("/", "/index.html"):
@@ -220,7 +224,7 @@ class Handler(BaseHTTPRequestHandler):
         return self._json({"error": "ruta desconocida"}, 404)
 
     # --------------------------- POST / DELETE
-    def do_POST(self):
+    def _post(self):
         u = urlparse(self.path)
         p = u.path
         if p == "/api/upload":
@@ -353,7 +357,7 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             gen.close()                # libera el candado de la IA si se corto a mitad
 
-    def do_DELETE(self):
+    def _delete(self):
         p = urlparse(self.path).path
         m = re.match(r"^/api/comentarios/([A-Za-z0-9-]{1,12})$", p)
         if m:

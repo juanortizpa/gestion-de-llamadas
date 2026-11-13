@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iniciar sesión · Auditoría de Llamadas</title>
+<link rel="stylesheet" href="/static/login.css">
+</head>
+<body>
+<main class="caja">
+  <div class="marca"><img src="/static/logo-angiografia.png" alt="" width="110" height="44" id="logo"><h1>Auditoría de Llamadas</h1></div>
+
+  <form id="fLogin" hidden>
+    <h2>Iniciar sesión</h2>
+    <label for="lUsuario">Usuario</label>
+    <input id="lUsuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="lClave">Contraseña</label>
+    <input id="lClave" name="clave" type="password" autocomplete="current-password" required>
+    <p class="error" id="lError" role="alert" hidden></p>
+    <button type="submit" id="lBtn">Entrar</button>
+    <p class="nota">¿Olvidó su contraseña? Pídale a un administrador que le cree un usuario nuevo.</p>
+  </form>
+
+  <form id="fAdmin" hidden>
+    <h2>Crear el administrador</h2>
+    <p class="nota">Es la primera vez que se abre el programa en este equipo. Cree la cuenta de administrador: después podrá crear usuarios para los auditores desde <b>Configuración</b>.</p>
+    <label for="aNombre">Nombre completo</label>
+    <input id="aNombre" name="nombre" autocomplete="name" maxlength="80" required>
+    <label for="aUsuario">Usuario</label>
+    <input id="aUsuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" pattern="[a-z0-9._\-]{3,32}" required>
+    <small>De 3 a 32 caracteres: minúsculas, números, punto o guion.</small>
+    <label for="aClave">Contraseña</label>
+    <input id="aClave" name="clave" type="password" autocomplete="new-password" minlength="10" required>
+    <small>Mínimo 10 caracteres, con letras y números.</small>
+    <label for="aClave2">Repita la contraseña</label>
+    <input id="aClave2" type="password" autocomplete="new-password" minlength="10" required>
+    <p class="error" id="aError" role="alert" hidden></p>
+    <button type="submit" id="aBtn">Crear administrador y entrar</button>
+  </form>
+
+  <p class="pie">Los datos no salen de este equipo. La sesión se cierra sola tras 30 minutos sin uso.</p>
+</main>
+<script src="/static/login.js"></script>
+</body>
+</html>
