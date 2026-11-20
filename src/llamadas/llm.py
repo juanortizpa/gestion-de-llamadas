@@ -87,6 +87,7 @@ class LlamaServer:
             if self.proc.poll() is not None:
                 raise RuntimeError("llama-server termino inesperadamente (ver data/llama_server.log)")
             time.sleep(1.5)
+        self.stop()   # si no, el proceso queda encendido (RAM y puerto ocupados) y nadie lo apaga: el lote sigue sin IA
         raise RuntimeError("llama-server no respondio a tiempo")
 
     def stop(self) -> None:
