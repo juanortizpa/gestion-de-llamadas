@@ -77,8 +77,10 @@ def transcribe(audio: np.ndarray, settings: Settings, sha: str | None = None) ->
         condition_on_previous_text=False, word_timestamps=True, initial_prompt=prompt,
     )
     out = [
-        {"start": s.start, "end": s.end, "text": s.text.strip(),
-         "words": [{"w": w.word, "s": w.start, "e": w.end, "p": round(w.probability, 3)} for w in (s.words or [])]}
+        # float(): faster-whisper entrega numpy.float64; sin convertir, las reglas comparan numpy y el resultado
+        # (numpy.bool_) no se puede guardar en JSON. Asi una transcripcion nueva es igual a la leida de la cache.
+        {"start": float(s.start), "end": float(s.end), "text": s.text.strip(),
+         "words": [{"w": w.word, "s": float(w.start), "e": float(w.end), "p": round(float(w.probability), 3)} for w in (s.words or [])]}
         for s in segs
     ]
     if sha:
